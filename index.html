@@ -871,9 +871,9 @@ function rebuildScene(){
     const sidePX = getGreatCirclePoints(polePos, posGP, 64, EARTH_R * 1.008);
     const sideZX = getGreatCirclePoints(posObserver, posGP, 64, EARTH_R * 1.008);
 
-    dynamicGroup.add(tubeFromPoints(sidePZ, 0x5b8dd9, 0.016));
-    dynamicGroup.add(tubeFromPoints(sidePX, 0xe0b04a, 0.016));
-    dynamicGroup.add(tubeFromPoints(sideZX, 0xe0803f, 0.016));
+    dynamicGroup.add(tubeFromPoints(sidePZ, 0x5b8dd9, 0.009));
+    dynamicGroup.add(tubeFromPoints(sidePX, 0xe0b04a, 0.009));
+    dynamicGroup.add(tubeFromPoints(sideZX, 0xe0803f, 0.009));
 
     // Secondary Faint Navigation Triangle on Celestial Sphere
     const cSidePZ = getGreatCirclePoints(poleCelestialPos, posZenith, 64, CELESTIAL_R);
