@@ -755,6 +755,31 @@ function addMarker(pos, color, size = 0.025) {
   dynamicGroup.add(mesh);
 }
 
+function addMoonMarker(pos) {
+  const moonGroup = new THREE.Group();
+  moonGroup.position.copy(pos);
+
+  const moonGeo = new THREE.SphereGeometry(0.035, 24, 16);
+  const moonMat = new THREE.MeshPhongMaterial({color: 0xb9bdc5, shininess: 4});
+  moonGroup.add(new THREE.Mesh(moonGeo, moonMat));
+
+  const craterMat = new THREE.MeshBasicMaterial({color: 0x737984});
+  const craters = [
+    [-0.018, 0.014, 0.026, 0.006],
+    [0.016, 0.020, 0.022, 0.0045],
+    [-0.006, -0.021, 0.025, 0.004],
+    [0.021, -0.010, 0.017, 0.0035],
+    [-0.024, -0.004, 0.012, 0.003]
+  ];
+  craters.forEach(([x, y, z, size]) => {
+    const crater = new THREE.Mesh(new THREE.SphereGeometry(size, 10, 8), craterMat);
+    crater.position.set(x, y, z);
+    moonGroup.add(crater);
+  });
+
+  dynamicGroup.add(moonGroup);
+}
+
 function makeLabel(text, pos, color='#ffffff', fontSize=32) {
   const cnv = document.createElement('canvas');
   cnv.width = 320; cnv.height = 80;
@@ -854,7 +879,8 @@ function rebuildScene(){
   addMarker(posSouthPole, 0xa481d6, 0.032);     // South Pole
 
   // Celestial Body & Zenith Markers
-  addMarker(posCelestialBody, 0xf2c766, 0.05);  // Celestial Body
+  if(bodyId === 'moon') addMoonMarker(posCelestialBody);
+  else addMarker(posCelestialBody, 0xf2c766, 0.05);  // Celestial Body
   addMarker(posZenith, 0xffffff, 0.025);        // Zenith Point
 
   // Radial Line connecting celestial body directly through GP
