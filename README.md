@@ -21,11 +21,12 @@ Open `index.html` directly in a modern browser. The page loads Three.js r128 and
 `index.html` is intentionally a single-file application. It contains four layers:
 
 1. **Markup and styling**
-   - The header contains the triangle/ecliptic toggles and time animation control.
+   - The header contains the triangle/ecliptic toggles and a kiosk-mode control.
    - The left sidebar contains navigation inputs, body selection, positions, and sight data.
    - The center viewport hosts the Three.js renderer.
    - The right panel displays the plotting sheet and computed values.
    - The footer exposes interaction hints and the camera reset button.
+   - Kiosk mode hides the sidebar, right panel, and footer, centers the viewport full-bleed, and overlays a compact readout of UTC time, AS position, LHA, declination, Hc, and Zn.
 
 2. **Astronomy math**
    - Angle normalization, Julian date, and J2000 epoch helpers.
@@ -45,7 +46,7 @@ Open `index.html` directly in a modern browser. The page loads Three.js r128 and
    - `rebuildScene()` is the central recomputation and redraw routine.
    - Input changes trigger a rebuild.
    - Camera events update only the camera; astronomy data is not recomputed for camera motion.
-   - The animation timer advances UTC by four minutes every 100 ms while playing.
+   - A one-second interval timer advances the displayed UTC time by one second and rebuilds the scene automatically, keeping the visualization and computed values live without user input.
 
 ## Data flow
 
@@ -279,7 +280,7 @@ phi   = (90 - latitude) * DEG
  z =  r * sin(phi) * sin(theta)
 ```
 
-The longitude offset and negative X sign align the Earth texture and Greenwich meridian with the scene's chosen orientation. The Earth uses `radius = 1.5`; the celestial sphere uses `radius = 3.2`.
+The longitude offset and negative X sign align the Earth texture and Greenwich meridian with the scene's chosen orientation. The Earth uses `radius = 1.2`; the celestial sphere uses `radius = 3.2`.
 
 ### Great-circle interpolation
 
@@ -365,7 +366,9 @@ The renderer uses a perspective camera, ambient light, a directional light, anti
 - **Ecliptic toggle:** rebuilds without the ecliptic ring, fan, and label.
 - **Use current UTC time:** fills the date/time controls and rebuilds.
 - **Use my location:** requests browser geolocation, updates AS and DR, then rebuilds.
-- **Animate time:** advances the selected UTC timestamp by four minutes per tick.
+- **Time offset slider:** offsets the displayed date/time within a configurable range (1 week to 1 year) and rebuilds.
+- **Automatic time update:** the UTC time advances by one second every second, continuously rebuilding the scene.
+- **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
 
 ## Accuracy and scope
 
