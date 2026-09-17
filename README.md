@@ -2,11 +2,13 @@
 
 A self-contained browser visualization for celestial navigation. The app combines a Three.js 3D globe with a compact sight-reduction panel and a plotting sheet for the intercept method.
 
-Open `index.html` directly in a modern browser. The page loads Three.js r128 and two fonts from CDNs, so an internet connection is needed unless those dependencies are vendored locally.
+Open `index.html` directly in a modern browser. The page loads Three.js r128 and two fonts from CDNs, so an internet connection is needed for those and for the satellite Earth imagery (also CDN-hosted); the Sun/Moon/planet textures are embedded directly in the file and always render, even offline.
 
 ## What the application shows
 
-- An Earth globe textured from procedurally drawn continent polygons.
+- An Earth globe rendered with a real satellite photo (NASA Blue Marble), an ocean specular mask, and a normal map for surface relief, layered over a procedurally drawn vector map that shows instantly and stays as an offline-safe fallback.
+- A real-time day/night terminator on Earth, driven by the actual computed Sun position, with city lights fading in on the night side.
+- Real photographic textures for the Sun, Moon, and visible planets, each with a small text label; unlisted bodies (stars) fall back to a flat catalog color.
 - A virtual celestial sphere, equatorial plane, ecliptic plane, poles, Greenwich meridian, and starfield.
 - The selected body's geographic position (GP), the observer's assumed position (AS), and the celestial zenith.
 - The PZX spherical navigation triangle:
@@ -14,7 +16,8 @@ Open `index.html` directly in a modern browser. The page loads Three.js r128 and
   - `Z`: observer/zenith.
   - `X`: selected body's geographic position on Earth, or its corresponding celestial-sphere projection.
 - Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, and local hour angle `LHA`.
-- A plotting sheet centered on the dead-reckoning position, including the AS-to-intercept line and line of position (LOP).
+- A circle of equal altitude (circle of position) drawn on the globe for any body with an entered `Hs`, centered on that body's GP with angular radius `90 - Hs`. This works for the focus body's own Hs field and independently for each visible body's own Hs field, each drawn in that body's palette color.
+- A plotting sheet centered on the dead-reckoning position, including the AS-to-intercept line and line of position (LOP) for the focus body, plus one additional colored LOP per visible body that has an Hs entered.
 
 ## File architecture
 
@@ -293,6 +296,16 @@ $$
 
 The result is rescaled to the requested radius. It is used for the Earth and celestial-sphere triangle edges.
 
+### Circle of equal altitude
+
+`getSmallCirclePoints(centerDir, angularRadiusDeg, radius)` generates a circle of constant angular distance from a center direction, rather than a great circle. It builds an orthonormal basis `(c, u, v)` around the normalized center direction and samples:
+
+$$
+P(t) = r\big(\cos R \cdot c + \sin R \cdot (\cos t \cdot u + \sin t \cdot v)\big)
+$$
+
+for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - Hs` degrees from the body's GP, so a celestial observation of altitude `Hs` places the observer somewhere on this circle. `rebuildScene()` draws one such circle (as a tube, for the same line-width reasons as the triangle sides) whenever a valid Hs is present for the focus body or a visible body, centered on that body's own GP.
+
 ### Ecliptic plane
 
 The ecliptic ring is sampled at `lambda` from `0` to `360` degrees with ecliptic latitude zero. Each sample is converted to equatorial coordinates:
@@ -336,6 +349,8 @@ $$
 
 The LOP is drawn through the intercept point along the direction `Zn + 90` degrees, making it perpendicular to the azimuth.
 
+`drawPlotSheet(asLat, asLon, Zn, Hc, bodySights)` additionally accepts a `bodySights` array built in `rebuildScene()` from every visible body with a valid Hs (each entry carries that body's own `Hc`, `Zn`, `hs`, and palette color). The same intercept/LOP math is applied per entry and rendered in the body's color with a small text label, independently of the focus body's own (green) intercept and LOP above.
+
 The plotting sheet is a local flat approximation. It is appropriate for the small `+-2` degree window used here, but it is not a global map projection.
 
 ## Rendering model
@@ -347,14 +362,30 @@ The scene has two dynamic groups:
 
 On every rebuild, children in these groups are removed and recreated. This keeps the implementation straightforward and ensures that changing time, body, observer position, pole, or sight data updates every dependent visual consistently.
 
-The Earth texture is generated once by `generateEarthTexture()`. Its map projection is a simple equirectangular projection:
+### Earth material
+
+A procedural vector texture is generated once by `generateEarthTexture()` and applied immediately so the globe is never blank. Its map projection is a simple equirectangular projection:
 
 $$
  x = (lon + 180)\frac{W}{360}, \qquad
  y = (90 - lat)\frac{H}{180}
 $$
 
-The renderer uses a perspective camera, ambient light, a directional light, antialiased WebGL output, and a pixel-ratio cap of 2.
+`latLonToVector3()` uses the same `(lon + 180)` / `(90 - lat)` convention, so this procedural texture and any replacement equirectangular photo align with markers and arcs without extra transforms.
+
+Once loaded asynchronously from a CDN, three photographic maps are layered onto the same material (`earthMaterial`):
+
+- A satellite color photo (`map`) replaces the procedural texture.
+- A specular mask (`specularMap`) makes oceans glint while land stays matte.
+- A normal map (`normalMap`) adds subtle surface relief under the existing Phong lighting.
+
+`earthMaterial.onBeforeCompile` patches the stock Phong shader to add a day/night terminator: a world-space normal is compared against a `sunDirection` uniform, the lit side is left alone, the night side is dimmed, and a city-lights texture (`nightMap`) is additively blended in on the dark side only. Each `rebuildScene()` call recomputes the true sub-solar point from `sunPosition()` and updates both `sunDirection` and the scene's `sunLight` position, so the rendered terminator (and the Moon/planets' lit phase, since they share the same lighting) tracks the real Sun rather than a fixed light.
+
+### Body markers
+
+`addBodyMarker()` gives the Sun, Moon, and planets real photographic textures (`BODY_TEXTURE_URLS`) instead of flat-colored spheres; the Sun uses an unlit material (it is a light source), while the Moon/planets use the same Phong lighting as Earth. Bodies without a texture (stars) fall back to the flat `bodyPalette` color. Each visible/focused body also gets a small text label via `makeLabel()`.
+
+The renderer uses a perspective camera, ambient light, a directional light (synced to the real Sun direction, see above), antialiased WebGL output, and a pixel-ratio cap of 2.
 
 ## Interaction model
 
@@ -367,6 +398,7 @@ The renderer uses a perspective camera, ambient light, a directional light, anti
 - **Use current UTC time:** fills the date/time controls and rebuilds.
 - **Use my location:** requests browser geolocation, updates AS and DR, then rebuilds.
 - **Time offset slider:** offsets the displayed date/time within a configurable range (1 week to 1 year) and rebuilds.
+- **Visible-body Hs fields:** entering an observed altitude next to a visible body draws that body's circle of equal altitude on the globe and its line of position on the plotting sheet, colored to match the body; independent of the main "Sight Observation" Hs field for the focus body.
 - **Automatic time update:** the UTC time advances by one second every second, continuously rebuilding the scene.
 - **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
 
@@ -379,10 +411,16 @@ This is an educational visualization, not a certified navigation calculator. Imp
 - No atmospheric refraction, dip, index error, semi-diameter, or observer height corrections.
 - No nutation, aberration, light-time, proper motion, or detailed Earth orientation corrections.
 - The star catalog coordinates are intentionally compact and approximate.
-- The Earth texture is illustrative rather than a geographic dataset.
+- The satellite Earth photo and Sun/Moon/planet photos are illustrative imagery, not navigational charts; the procedural vector map is a simplified fallback, not a geographic dataset.
 - WebGL line width is effectively limited on many platforms, so primary triangle edges use tube geometry for visual weight.
 
 For real navigation, compare results with an approved nautical almanac and apply the complete sight-correction workflow.
+
+## Imagery and licensing
+
+- Earth's satellite photo, specular mask, normal map, and night-lights texture are NASA Blue Marble-derived assets, loaded from the `three.js` example assets on a `jsdelivr` CDN mirror.
+- Sun/Moon/planet photos originate from Solar System Scope (CC BY 4.0), downscaled and embedded directly in `index.html` as base64 `data:` URIs so they render in every browser without any network request or CORS dependency.
+- All photographic assets load asynchronously behind the procedural fallback texture and flat palette colors, so the app remains usable if a request fails or the page is offline.
 
 ## Extension points
 
