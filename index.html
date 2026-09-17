@@ -92,6 +92,8 @@
       <div class="toggle-wrap">Nav triangle<div class="switch on" id="triToggle"><div class="knob"></div></div></div>
       <div class="toggle-wrap">Ecliptic<div class="switch on" id="eclipticToggle"><div class="knob"></div></div></div>
       <div class="toggle-wrap">Sight lines<div class="switch on" id="radialToggle"><div class="knob"></div></div></div>
+      <div class="toggle-wrap">Equatorial plane<div class="switch on" id="eqPlaneToggle"><div class="knob"></div></div></div>
+      <div class="toggle-wrap">Celestial sphere<div class="switch on" id="celSphereToggle"><div class="knob"></div></div></div>
     </div>
     <div class="header-right"><div class="icon-btn" id="kioskBtn">🖥 Kiosk</div></div>
   </header>
@@ -255,6 +257,8 @@ function rebuildScene(){ while(dynamicGroup.children.length) dynamicGroup.remove
 document.getElementById('triToggle').addEventListener('click', () => { triGroupVisible = !triGroupVisible; document.getElementById('triToggle').classList.toggle('on', triGroupVisible); rebuildScene(); });
 document.getElementById('eclipticToggle').addEventListener('click', () => { eclipticVisible = !eclipticVisible; document.getElementById('eclipticToggle').classList.toggle('on', eclipticVisible); rebuildScene(); });
 document.getElementById('radialToggle').addEventListener('click', () => { radialLinesVisible = !radialLinesVisible; document.getElementById('radialToggle').classList.toggle('on', radialLinesVisible); rebuildScene(); });
+document.getElementById('eqPlaneToggle').addEventListener('click', () => { eqPlaneMesh.visible = !eqPlaneMesh.visible; document.getElementById('eqPlaneToggle').classList.toggle('on', eqPlaneMesh.visible); });
+document.getElementById('celSphereToggle').addEventListener('click', () => { celestialSphere.visible = !celestialSphere.visible; document.getElementById('celSphereToggle').classList.toggle('on', celestialSphere.visible); });
 document.getElementById('poleSel').addEventListener('change', (e) => { selectedPole = e.target.value; rebuildScene(); });
 document.getElementById('bodySel').addEventListener('change', rebuildScene);
 function setNow(){ const now = new Date(); document.getElementById('dateIn').value = now.toISOString().slice(0,10); document.getElementById('timeIn').value = now.toISOString().slice(11,19); document.getElementById('timeOffsetSlider').value = 0; }
