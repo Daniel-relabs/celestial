@@ -1,0 +1,26 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 380' width='720' height='380'>
+<rect x='1' y='1' width='718' height='378' rx='12' fill='#0e1220' stroke='#232a42' stroke-width='2'/>
+<text x='195.0' y='36.0' fill='#e7ebf5' font-size='13' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Top-down (from the N celestial pole)</text>
+<circle cx='195.00' cy='215.00' r='135.00' stroke='#5b8dd9' stroke-width='2.25' fill='none'/>
+<line x1='195.00' y1='215.00' x2='195.00' y2='80.00' stroke='#e7ebf5' stroke-width='2.25' stroke-linecap='round'/>
+<line x1='195.00' y1='215.00' x2='301.38' y2='298.11' stroke='#e0b04a' stroke-width='2.5' stroke-linecap='round'/>
+<circle cx='301.38' cy='298.11' r='5' fill='#e0b04a'/>
+<text x='203.0' y='96.0' fill='#e7ebf5' font-size='12' text-anchor='start' font-weight='500' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Greenwich meridian</text>
+<text x='314.0' y='308.0' fill='#e0b04a' font-size='12' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Body's hour circle</text>
+<path d='M 195.00,157.00 A 58.00,58.00 0 0 1 240.70,250.71' stroke='#e0b04a' stroke-width='2' fill='none' stroke-dasharray='5,4'/>
+<text x='263.3' y='181.7' fill='#e0b04a' font-size='13' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >GHA</text>
+<circle cx='195.00' cy='215.00' r='3' fill='#8892ac'/>
+<text x='535.0' y='36.0' fill='#e7ebf5' font-size='13' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Side view (a single meridian plane)</text>
+<circle cx='535.00' cy='215.00' r='135.00' stroke='#4a5272' stroke-width='2' fill='none'/>
+<line x1='400.00' y1='215.00' x2='670.00' y2='215.00' stroke='#5b8dd9' stroke-width='2.25' stroke-linecap='round'/>
+<text x='535.0' y='237.0' fill='#5b8dd9' font-size='12' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Celestial equator (Dec 0°)</text>
+<line x1='535.00' y1='215.00' x2='645.59' y2='137.57' stroke='#e0b04a' stroke-width='2.5' stroke-linecap='round'/>
+<circle cx='645.59' cy='137.57' r='5' fill='#e0b04a'/>
+<text x='658.7' y='128.4' fill='#e0b04a' font-size='12' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Body</text>
+<path d='M 580.05,183.45 A 55.00,55.00 0 0 1 590.00,215.00' stroke='#6fb389' stroke-width='2' fill='none' stroke-dasharray='5,4'/>
+<text x='605.6' y='192.7' fill='#6fb389' font-size='13' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Dec</text>
+<circle cx='535.00' cy='80.00' r='4.5' fill='#a481d6'/>
+<circle cx='535.00' cy='350.00' r='4.5' fill='#a481d6'/>
+<text x='543.0' y='82.0' fill='#8892ac' font-size='11' text-anchor='start' font-weight='500' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >N</text>
+<text x='543.0' y='352.0' fill='#8892ac' font-size='11' text-anchor='start' font-weight='500' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >S</text>
+</svg>

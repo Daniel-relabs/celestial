@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 460 430' width='460' height='430'>
+<rect x='1' y='1' width='458' height='428' rx='12' fill='#0e1220' stroke='#232a42' stroke-width='2'/>
+<text x='230.0' y='30.0' fill='#e7ebf5' font-size='13.5' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Top-down view of the equatorial plane</text>
+<circle cx='230.00' cy='232.00' r='140.00' stroke='#5b8dd9' stroke-width='2.25' fill='none'/>
+<line x1='230.00' y1='232.00' x2='230.00' y2='92.00' stroke='#e7ebf5' stroke-width='2.25' stroke-linecap='round'/>
+<line x1='230.00' y1='232.00' x2='353.61' y2='166.27' stroke='#a481d6' stroke-width='2.5' stroke-linecap='round'/>
+<line x1='230.00' y1='232.00' x2='319.99' y2='339.25' stroke='#e0b04a' stroke-width='2.5' stroke-linecap='round'/>
+<circle cx='353.61' cy='166.27' r='5' fill='#a481d6'/>
+<circle cx='319.99' cy='339.25' r='5' fill='#e0b04a'/>
+<text x='224.0' y='108.0' fill='#e7ebf5' font-size='12' text-anchor='end' font-weight='500' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Greenwich</text>
+<text x='369.5' y='157.8' fill='#a481d6' font-size='12.5' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Aries ♈</text>
+<text x='331.6' y='353.0' fill='#e0b04a' font-size='12.5' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >Star</text>
+<path d='M 230.00,180.00 A 52.00,52.00 0 0 1 275.91,207.59' stroke='#a481d6' stroke-width='2' fill='none' stroke-dasharray='5,4'/>
+<text x='265.0' y='173.7' fill='#a481d6' font-size='11.5' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >GHA of Aries</text>
+<path d='M 307.70,190.69 A 88.00,88.00 0 0 1 286.57,299.41' stroke='#e0b04a' stroke-width='2' fill='none' stroke-dasharray='5,4'/>
+<text x='332.1' y='251.8' fill='#e0b04a' font-size='11.5' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >SHA of star</text>
+<path d='M 230.00,68.00 A 164.00,164.00 0 0 1 335.42,357.63' stroke='#8892ac' stroke-width='2' fill='none' stroke-dasharray='3,4'/>
+<text x='379.1' y='318.9' fill='#8892ac' font-size='11.5' text-anchor='middle' font-weight='700' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >GHA of star</text>
+<circle cx='230.00' cy='232.00' r='3' fill='#8892ac'/>
+<text x='230.0' y='406.0' fill='#e7ebf5' font-size='13' text-anchor='middle' font-weight='600' font-family='Space Grotesk, Helvetica, Arial, sans-serif' >GHA(star) = GHA(Aries) + SHA(star)</text>
+</svg>
