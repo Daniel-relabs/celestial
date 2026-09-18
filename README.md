@@ -4,6 +4,110 @@ A self-contained browser visualization for celestial navigation. The app combine
 
 Open `index.html` directly in a modern browser. The page loads Three.js r128 and two fonts from CDNs, so an internet connection is needed for those and for the satellite Earth imagery (also CDN-hosted); the Sun/Moon/planet textures are embedded directly in the file and always render, even offline.
 
+## A primer on celestial navigation
+
+The sections below build up, from first principles, the ideas the app puts on screen: a position on Earth, a position on the sky, and the spherical triangle that links them.
+
+### 1. Latitude and longitude
+
+Latitude is easy because it can be measured locally, with no clock at all. The altitude of the celestial pole above the horizon equals the observer's latitude, so a fixed star near the pole (Polaris, in the northern hemisphere) or the Sun's altitude at local noon, corrected for declination, gives latitude directly from a single angle measurement. Sailors and astronomers have done this since antiquity with instruments like the astrolabe, cross-staff, and later the quadrant and sextant.
+
+Longitude has no equivalent shortcut. Because Earth rotates, "where you are east-west" is really "what time it is where you are, compared with what time it is at a reference meridian." Without an accurate reference clock, there is nothing local to measure. This is the historical "longitude problem": for centuries, ships could find their latitude precisely but their east-west position only by dead reckoning, with errors that grew every day at sea. The 1707 Scilly naval disaster, which cost roughly 1,400–2,000 lives to a longitude error, made the problem a matter of national urgency. The 1714 Longitude Act established a British Board of Longitude and a prize for a practical solution. Two rival approaches emerged: the lunar-distance method (astronomical, needing no new hardware, but demanding lengthy calculation) and the marine chronometer, a clock accurate enough to keep reference time through a long voyage at sea. John Harrison's chronometers, culminating in H4, proved the chronometer approach on sea trials in the 1760s; both methods were in active use by mariners well into the 19th century, until chronometers became affordable and lunar distances fell out of use.
+
+The precision required is unforgiving because Earth turns a full 360° in 24 hours:
+
+$$
+1^h \rightarrow 15^\circ, \qquad 1^m \rightarrow 15', \qquad 4^s \rightarrow 1'
+$$
+
+At the equator, 1 arcminute of longitude is about 1 nautical mile. So a clock error of just 4 seconds translates to roughly a 1 nautical mile position error, and a clock drifting by only a few seconds a day can put a ship many miles off course over a multi-week Atlantic crossing — enough to miss an island or misjudge a landfall in fog.
+
+<p align="center"><img src="diagrams/lat-lon-grid.svg" alt="Globe graticule contrasting latitude parallels with longitude meridians" width="460"></p>
+
+```mermaid
+timeline
+    title The quest for longitude
+    1707 : Scilly naval disaster exposes the cost of dead reckoning
+    1714 : British Longitude Act creates the Board of Longitude
+    1730s : Lunar-distance method matured for practical use
+    1761 : Harrison's H4 sea trial to Jamaica, accurate to seconds/day
+    1767 : First Nautical Almanac published, with lunar-distance tables
+    1773 : Harrison awarded the full longitude prize
+    1884 : International Meridian Conference fixes Greenwich as 0°
+```
+
+### 2. Time — GMT and the Moon as a clock
+
+Greenwich Mean Time (GMT), today formalized as Universal Time (UT), is simply the time of day on the Greenwich meridian. Every celestial-navigation calculation ultimately asks "what did the sky look like from Greenwich's meridian at the same instant the observer took a sight?" — which is why a reliable reference to GMT, however it is obtained, is the missing ingredient for longitude.
+
+Before mechanical chronometers were trusted for long voyages, the Moon itself served as a natural clock. The Moon moves against the background stars at roughly 0.5° per hour — fast enough to notice, slow enough to measure precisely with a sextant. An observer measured the angular distance between the Moon and the Sun (or a reference star), then looked that angle up in precomputed tables — published from 1767 onward in Nevil Maskelyne's *Nautical Almanac* — which gave the corresponding GMT. Comparing that derived GMT with the observer's own local time (found from the Sun's altitude) yielded longitude, with no clock required beyond a stable local timekeeper for the duration of the sight.
+
+```mermaid
+flowchart LR
+    A["Measure angle: Moon to Sun / reference star"] --> B["Look up angle in Nautical Almanac lunar-distance tables"]
+    B --> C["Table yields GMT at that instant"]
+    C --> D["Compare with local time from Sun's own altitude"]
+    D --> E["Time difference -> longitude"]
+```
+
+### 3. Hour angle, GHA, and declination — coordinates for Sun, Moon, and planets
+
+Just as latitude/longitude locates a point on Earth, declination/hour-angle locates a point on the sky. **Declination (Dec)** is the sky's equivalent of latitude: the angular distance of a body north or south of the celestial equator. **Greenwich Hour Angle (GHA)** is the sky's equivalent of longitude, with one key difference — it is always measured westward from the Greenwich meridian to the body's hour circle, and because Earth keeps turning, it constantly increases with time rather than staying fixed to a place on the ground.
+
+<p align="center"><img src="diagrams/gha-dec.svg" alt="GHA measured westward from the Greenwich meridian, and Dec measured from the celestial equator" width="640"></p>
+
+GHA and Dec for the Sun, Moon, and planets change from minute to minute as the bodies orbit and Earth rotates, so this application recomputes them continuously from the current UTC time (see "Time and sidereal rotation" and "Celestial-body positions" below).
+
+### 4. Aries, SHA, and declination — coordinates for stars
+
+Stars are, for navigational purposes, fixed on the sky, so it is more convenient to give each one a catalog coordinate that does not change with time, then add the time-varying part separately. The reference point is the **First Point of Aries (♈)**, the direction of the vernal equinox. **Sidereal Hour Angle (SHA)** is measured westward from Aries to a star's hour circle and, like Dec, stays essentially constant for a given star. GHA of Aries carries all of the time dependence:
+
+$$
+GHA_{\text{star}} = GHA_{\Upsilon} + SHA_{\text{star}} \pmod{360^\circ}
+$$
+
+<p align="center"><img src="diagrams/aries-sha.svg" alt="GHA of a star equals GHA of Aries plus the star's SHA" width="460"></p>
+
+This is exactly the fixed-catalog approach this application uses internally, with J2000 right ascension/declination precessed to the current date (see "Stars" below).
+
+### 5. Observed altitude, zenith distance, and the observer's two horizons
+
+**Observed altitude (Hs)** is the angle measured with a sextant between a celestial body and the visible horizon. For the geometry of sight reduction, what actually matters is the angle from the body down to the **zenith** — the point directly overhead — called the **zenith distance**:
+
+$$
+\text{Zenith distance} = 90^\circ - Hs
+$$
+
+The subtlety is that there are two different horizons in play. The observer's real, "sensible" horizon is the plane tangent to Earth's surface at the observer's feet. The **celestial horizon** used in the geometry is a parallel plane passing through Earth's center. Because celestial bodies are so far away, the two planes point in essentially the same direction, so the distinction is negligible for the Sun, Moon, planets, and stars — the small residual (dip of the horizon, from the observer's height of eye) is corrected for separately and is not part of the spherical triangle itself.
+
+<p align="center"><img src="diagrams/horizons.svg" alt="The observer's sensible horizon versus the celestial horizon through Earth's centre, with Hs and zenith distance" width="500"></p>
+
+### 6. The noon shot
+
+The classic **noon sight** finds latitude without needing a longitude or even an accurate clock. As the Sun crosses the observer's meridian at **Local Apparent Noon (LAN)**, its altitude reaches a daily maximum and its azimuth flips from increasing to decreasing (roughly east-of-south to west-of-south, or the equivalent in the southern hemisphere) — an event easy to detect by simply tracking the sextant altitude and waiting for it to stop rising.
+
+<p align="center"><img src="diagrams/noon-altitude.svg" alt="Altitude curve peaking at Local Apparent Noon" width="520"></p>
+
+At that instant, latitude follows directly from the observed altitude at meridian passage (Ho) and the Sun's declination:
+
+$$
+Lat = 90^\circ - Ho \pm Dec
+$$
+
+with the sign depending on whether the observer's zenith and the Sun's declination are on the same side of the equator (same name, subtract) or opposite sides (contrary name, add), and on which pole is elevated. This is why latitude-by-noon-sight was routine navigational practice long before the longitude problem was solved.
+
+### 7. LHA
+
+Everything above (GHA, Dec, SHA) is referenced to the Greenwich meridian. But the spherical triangle actually solved for a sight is built at the *observer's* meridian, so GHA must be shifted by the observer's own longitude to get the **Local Hour Angle (LHA)**:
+
+$$
+LHA = GHA + \lambda_{E} \qquad \text{or} \qquad LHA = GHA - \lambda_{W} \pmod{360^\circ}
+$$
+
+<p align="center"><img src="diagrams/gha-lha.svg" alt="LHA is GHA shifted by the observer's own longitude" width="460"></p>
+
+LHA is the angle this application ultimately feeds into sight reduction alongside declination and assumed latitude (see "Sight-reduction formulae" below); it is the true angular separation, at the observer's own meridian, between the observer and the body.
+
 ## What the application shows
 
 - An Earth globe rendered with a real satellite photo (NASA Blue Marble), an ocean specular mask, and a normal map for surface relief, layered over a procedurally drawn vector map that shows instantly and stays as an offline-safe fallback.
