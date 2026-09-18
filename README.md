@@ -245,7 +245,7 @@ $$
 4. Convert ecliptic longitude to equatorial right ascension and declination using the obliquity `epsilon`:
 
 $$
-RA = \operatorname{atan2}(\cos\epsilon\sin\lambda, \cos\lambda)
+RA = \mathrm{atan2}(\cos\epsilon\sin\lambda, \cos\lambda)
 $$
 
 $$
@@ -263,7 +263,7 @@ $$
 `moonPosition(jd)` uses a truncated periodic model for ecliptic longitude and latitude. The principal terms are summed in degrees, then transformed to equatorial coordinates:
 
 $$
-RA = \operatorname{atan2}(\sin\lambda\cos\epsilon - \tan\beta\sin\epsilon, \cos\lambda)
+RA = \mathrm{atan2}(\sin\lambda\cos\epsilon - \tan\beta\sin\epsilon, \cos\lambda)
 $$
 
 $$
@@ -415,7 +415,7 @@ for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is 
 The ecliptic ring is sampled at `lambda` from `0` to `360` degrees with ecliptic latitude zero. Each sample is converted to equatorial coordinates:
 
 $$
-RA_\lambda = \operatorname{atan2}(\sin\lambda\cos\epsilon, \cos\lambda)
+RA_\lambda = \mathrm{atan2}(\sin\lambda\cos\epsilon, \cos\lambda)
 $$
 
 $$
