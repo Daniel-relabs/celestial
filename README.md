@@ -88,7 +88,9 @@ The classic **noon sight** finds latitude without needing a longitude or even an
 
 <p align="center"><img src="diagrams/noon-altitude.svg" alt="Altitude curve peaking at Local Apparent Noon" width="520"></p>
 
-At that instant, latitude follows directly from the observed altitude at meridian passage (Ho) and the Sun's declination:
+At that instant, latitude follows directly from the observed altitude at meridian passage (Ho) and the Sun's declination. The flat cross-section below shows why: because the Sun's rays arriving at the observer and at Earth's centre are effectively parallel, the declination angle is the same at both places, and the observer's zenith direction (extended) passes straight through Earth's centre, so the two angles simply add:
+
+<p align="center"><img src="diagrams/noon-shot-geometry.svg" alt="Angle-chasing diagram showing Lat equals declination plus 90 degrees minus Ho" width="560"></p>
 
 $$
 Lat = 90^\circ - Ho \pm Dec
