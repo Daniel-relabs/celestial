@@ -95,7 +95,7 @@
       <div class="toggle-wrap">Equatorial plane<div class="switch on" id="eqPlaneToggle"><div class="knob"></div></div></div>
       <div class="toggle-wrap">Celestial sphere<div class="switch on" id="celSphereToggle"><div class="knob"></div></div></div>
     </div>
-    <div class="header-right"><div class="icon-btn" id="kioskBtn">🖥 Kiosk</div></div>
+    <div class="header-right"><div class="icon-btn" id="timeToggleBtn">⏸ Pause</div><div class="icon-btn" id="kioskBtn">🖥 Kiosk</div></div>
   </header>
 
   <main>
@@ -267,7 +267,9 @@ document.getElementById('timeOffsetRange').addEventListener('change', (e) => { c
 document.getElementById('timeOffsetSlider').addEventListener('input', rebuildScene);
 ['latIn','lonIn','drLatIn','drLonIn','hsIn','dateIn','timeIn'].forEach(id => document.getElementById(id).addEventListener('input', rebuildScene)); document.getElementById('geoBtn').addEventListener('click', () => { const status = document.getElementById('geoStatus'); if(!navigator.geolocation){ status.textContent = 'Geolocation not supported by this browser.'; return; } status.textContent = 'Locating…'; navigator.geolocation.getCurrentPosition((pos) => { document.getElementById('latIn').value = pos.coords.latitude.toFixed(4); document.getElementById('lonIn').value = pos.coords.longitude.toFixed(4); document.getElementById('drLatIn').value = pos.coords.latitude.toFixed(4); document.getElementById('drLonIn').value = pos.coords.longitude.toFixed(4); status.textContent = `Set to ${fmtLat(pos.coords.latitude)}, ${fmtLon(pos.coords.longitude)}`; rebuildScene(); }, (err) => { status.textContent = 'Could not get location: ' + err.message; }, { enableHighAccuracy: true, timeout: 10000 }); });
 let kioskMode = false; document.getElementById('kioskBtn').addEventListener('click', function(){ kioskMode = !kioskMode; document.getElementById('app').classList.toggle('kiosk-mode', kioskMode); this.textContent = kioskMode ? '✕ Exit' : '🖥 Kiosk'; setTimeout(() => { resize(); rebuildScene(); }, 50); });
-let timeUpdateInterval = setInterval(() => { const dt = new Date(`${document.getElementById('dateIn').value}T${document.getElementById('timeIn').value || '00:00:00'}Z`); dt.setUTCSeconds(dt.getUTCSeconds() + 1); document.getElementById('dateIn').value = dt.toISOString().slice(0,10); document.getElementById('timeIn').value = dt.toISOString().slice(11,19); rebuildScene(); }, 1000);
+function tickTime(){ const dt = new Date(`${document.getElementById('dateIn').value}T${document.getElementById('timeIn').value || '00:00:00'}Z`); dt.setUTCSeconds(dt.getUTCSeconds() + 1); document.getElementById('dateIn').value = dt.toISOString().slice(0,10); document.getElementById('timeIn').value = dt.toISOString().slice(11,19); rebuildScene(); }
+let timeRunning = true; let timeUpdateInterval = setInterval(tickTime, 1000);
+document.getElementById('timeToggleBtn').addEventListener('click', function(){ timeRunning = !timeRunning; if(timeRunning){ timeUpdateInterval = setInterval(tickTime, 1000); this.textContent = '⏸ Pause'; } else { clearInterval(timeUpdateInterval); this.textContent = '▶ Resume'; } });
 populateBodySelect(); setNow(); resize(); updateCamera(); rebuildScene(); function animate(){ requestAnimationFrame(animate); renderer.render(scene, camera); } animate();
 </script>
 </body>
