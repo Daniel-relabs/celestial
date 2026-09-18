@@ -29,10 +29,10 @@ timeline
     title The quest for longitude
     1707 : Scilly naval disaster exposes the cost of dead reckoning
     1714 : British Longitude Act creates the Board of Longitude
-    1730s : Lunar-distance method matured for practical use
+    1755 : Tobias Mayer's lunar tables make the lunar-distance method practical
     1761 : Harrison's H4 sea trial to Jamaica, accurate to seconds/day
     1767 : First Nautical Almanac published, with lunar-distance tables
-    1773 : Harrison awarded the full longitude prize
+    1773 : Parliament grants Harrison £8,750 (the Board of Longitude never formally awarded the full prize)
     1884 : International Meridian Conference fixes Greenwich as 0°
 ```
 
@@ -96,7 +96,7 @@ $$
 Lat = 90^\circ - Ho \pm Dec
 $$
 
-with the sign depending on whether the observer's zenith and the Sun's declination are on the same side of the equator (same name, subtract) or opposite sides (contrary name, add), and on which pole is elevated. This is why latitude-by-noon-sight was routine navigational practice long before the longitude problem was solved.
+with the sign depending on whether the observer's zenith and the Sun's declination are on the same side of the equator (same name, add) or opposite sides (contrary name, subtract), and on which pole is elevated; if Dec is greater than Ho's colatitude (declination exceeds `90 - Ho`), the observer is on the far side of the subsolar point and the formula's sense flips accordingly. This is why latitude-by-noon-sight was routine navigational practice long before the longitude problem was solved.
 
 ### 7. LHA
 
@@ -134,9 +134,9 @@ Before hand calculators, computing `Hc` and `Zn` from `Lat`, `Dec`, and `LHA` (t
 
 | Dec | Hc | d | Z |
 |---|---|---|---|
-| 14° | 36°28.4′ | +52.1 | 128.4° |
-| 15° | 37°20.3′ | +51.4 | 127.6° |
-| 16° | 38°11.8′ | +50.6 | 126.8° |
+| 14° | 42°55.7′ | +40.1 | 110.4° |
+| 15° | 43°35.8′ | +39.5 | 109.4° |
+| 16° | 44°15.4′ | +39.0 | 108.4° |
 
 For a declination that falls between whole degrees, the navigator interpolates: add `d × (minutes of declination / 60)` to the `Hc` from the next-lower tabulated degree, and interpolate `Z` the same way. The resulting `Hc` is then compared against the observed altitude `Ho` to get the intercept, and `Z` is converted to true azimuth `Zn` using fixed rules based on the observer's hemisphere and whether `LHA` is greater or less than 180°. `sightReduce()` in this application (see "Sight-reduction formulae" below) produces exactly this pair, `Hc` and `Zn`, directly from closed-form trigonometry for any latitude, LHA, and declination, with no tables, whole-degree rounding, or interpolation involved.
 
