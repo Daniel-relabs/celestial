@@ -16,7 +16,7 @@ Open `index.html` directly in a modern browser. The page loads Three.js r128 and
   - `Z`: observer/zenith.
   - `X`: selected body's geographic position on Earth, or its corresponding celestial-sphere projection.
 - Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, and local hour angle `LHA`.
-- A circle of equal altitude (circle of position) drawn on the globe for any body with an entered `Hs`, centered on that body's GP with angular radius `90 - Hs`. This works for the focus body's own Hs field and independently for each visible body's own Hs field, each drawn in that body's palette color.
+- A circle of equal altitude (circle of position) drawn on the globe when an assumed position is present. The focus body's circle uses angular radius `90 - Hc`, or `90 - Hs` when an observed altitude is entered, and is centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
 - A plotting sheet centered on the dead-reckoning position, including the AS-to-intercept line and line of position (LOP) for the focus body, plus one additional colored LOP per visible body that has an Hs entered.
 
 ## File architecture
@@ -304,7 +304,7 @@ $$
 P(t) = r\big(\cos R \cdot c + \sin R \cdot (\cos t \cdot u + \sin t \cdot v)\big)
 $$
 
-for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - Hs` degrees from the body's GP, so a celestial observation of altitude `Hs` places the observer somewhere on this circle. `rebuildScene()` draws one such circle (as a tube, for the same line-width reasons as the triangle sides) whenever a valid Hs is present for the focus body or a visible body, centered on that body's own GP.
+for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - H` degrees from the body's GP, so an observation of altitude `H` places the observer somewhere on this circle. `rebuildScene()` draws the focus-body circle (as a tube, for the same line-width reasons as the triangle sides) when the assumed-position fields are populated, using `Hc` by default or the entered `Hs` when available. Visible bodies draw independent circles only when their own `Hs` is entered, centered on each body's GP.
 
 ### Ecliptic plane
 
@@ -397,7 +397,8 @@ The renderer uses a perspective camera, ambient light, a directional light (sync
 - **Ecliptic toggle:** rebuilds without the ecliptic ring, fan, and label.
 - **Use current UTC time:** fills the date/time controls and rebuilds.
 - **Use my location:** requests browser geolocation, updates AS and DR, then rebuilds.
-- **Time offset slider:** offsets the displayed date/time within a configurable range (1 week to 1 year) and rebuilds.
+- **Time offset range:** supports 6, 12, 48, and 72 hours, plus 1 week, 1 month, 3 months, 6 months, and 1 year.
+- **Time offset slider:** applies a positive or negative hour offset to the entered UTC date/time for astronomy calculations and rebuilds without changing the base date/time fields.
 - **Visible-body Hs fields:** entering an observed altitude next to a visible body draws that body's circle of equal altitude on the globe and its line of position on the plotting sheet, colored to match the body; independent of the main "Sight Observation" Hs field for the focus body.
 - **Automatic time update:** the UTC time advances by one second every second, continuously rebuilding the scene.
 - **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
