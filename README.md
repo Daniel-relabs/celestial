@@ -110,6 +110,36 @@ $$
 
 LHA is the angle this application ultimately feeds into sight reduction alongside declination and assumed latitude (see "Sight-reduction formulae" below); it is the true angular separation, at the observer's own meridian, between the observer and the body.
 
+### 8. Nautical Almanac — example of the daily pages
+
+Before calculators and apps, GHA and Dec for every hour of every day came from the *Nautical Almanac*, published annually. Each pair of facing "daily pages" covers three days and tabulates, for every whole hour of UT: the GHA of Aries, and the GHA and Dec of the Sun, Moon, Venus, Mars, Jupiter, and Saturn. A separate table at the bottom of the left-hand page lists the SHA and Dec of 57 navigational stars, which barely change over the three-day span. A representative excerpt (illustrative values, not a real date):
+
+| UT (h) | GHA Aries | GHA Sun | Dec Sun |
+|---|---|---|---|
+| 00 | 180°00.0′ | 179°58.3′ | N 12°34.1′ |
+| 01 | 195°02.5′ | 194°58.4′ | N 12°34.4′ |
+| 02 | 210°05.0′ | 209°58.5′ | N 12°34.7′ |
+
+| Star | SHA | Dec |
+|---|---|---|
+| Aldebaran | 291°17.2′ | N 16°32.6′ |
+| Regulus | 207°38.9′ | N 11°55.0′ |
+| Sirius | 258°45.1′ | S 16°43.1′ |
+
+The Moon and planets also carry small **v** and **d** correction factors printed alongside their hourly GHA and Dec, because their rates of change are not perfectly uniform. For a sight taken between whole hours, the navigator looks up the minutes-and-seconds increment in a separate table (bound in yellow at the back of the almanac) and applies the `v`/`d` corrections proportionally. This application does the equivalent work continuously and exactly: `sunPosition()`, `moonPosition()`, `planetPosition()`, and the star catalog's `precessJ2000ToDate()` (see "Celestial-body positions" below) compute GHA and Dec directly from the formulas the almanac's own tables are generated from, for the precise instant selected, rather than interpolating between hourly entries.
+
+### 9. Sight reduction tables — example
+
+Before hand calculators, computing `Hc` and `Zn` from `Lat`, `Dec`, and `LHA` (the spherical-trigonometry formulae in "Sight-reduction formulae" below) meant either a slide rule and haversine tables, or one of the precomputed *sight reduction tables* (such as Pub. 229 or Pub. 249). These tables tabulate `Hc`, a rate-of-change factor `d`, and azimuth angle `Z` for every whole-degree combination of assumed latitude, LHA, and declination, so a navigator could look up a sight instead of computing one. An excerpt for `Lat = 40° N`, `LHA = 315°`:
+
+| Dec | Hc | d | Z |
+|---|---|---|---|
+| 14° | 36°28.4′ | +52.1 | 128.4° |
+| 15° | 37°20.3′ | +51.4 | 127.6° |
+| 16° | 38°11.8′ | +50.6 | 126.8° |
+
+For a declination that falls between whole degrees, the navigator interpolates: add `d × (minutes of declination / 60)` to the `Hc` from the next-lower tabulated degree, and interpolate `Z` the same way. The resulting `Hc` is then compared against the observed altitude `Ho` to get the intercept, and `Z` is converted to true azimuth `Zn` using fixed rules based on the observer's hemisphere and whether `LHA` is greater or less than 180°. `sightReduce()` in this application (see "Sight-reduction formulae" below) produces exactly this pair, `Hc` and `Zn`, directly from closed-form trigonometry for any latitude, LHA, and declination, with no tables, whole-degree rounding, or interpolation involved.
+
 ## What the application shows
 
 - An Earth globe rendered with a real satellite photo (NASA Blue Marble), an ocean specular mask, and a normal map for surface relief, layered over a procedurally drawn vector map that shows instantly and stays as an offline-safe fallback.
