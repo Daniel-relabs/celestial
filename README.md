@@ -54,7 +54,7 @@ flowchart LR
 
 Just as latitude/longitude locates a point on Earth, declination/hour-angle locates a point on the sky. **Declination (Dec)** is the sky's equivalent of latitude: the angular distance of a body north or south of the celestial equator. **Greenwich Hour Angle (GHA)** is the sky's equivalent of longitude, with one key difference — it is always measured westward from the Greenwich meridian to the body's hour circle, and because Earth keeps turning, it constantly increases with time rather than staying fixed to a place on the ground.
 
-<p align="center"><img src="diagrams/gha-dec.svg" alt="GHA measured westward from the Greenwich meridian, and Dec measured from the celestial equator" width="640"></p>
+<p align="center"><img src="diagrams/gha-dec.svg" alt="GHA measured westward from the Greenwich meridian, and Dec measured from the celestial equator" width="480"></p>
 
 GHA and Dec for the Sun, Moon, and planets change from minute to minute as the bodies orbit and Earth rotates, so this application recomputes them continuously from the current UTC time (see "Time and sidereal rotation" and "Celestial-body positions" below).
 
