@@ -131,6 +131,8 @@
       <div class="info-h sp">Geographic Position (GP)</div>
       <div class="kv-row"><span class="k">GP Latitude (Dec)</span><span class="v" id="vGpLat" style="color:var(--accent-gp)">—</span></div>
       <div class="kv-row"><span class="k">GP Longitude (-W / +E)</span><span class="v" id="vGpLon" style="color:var(--accent-gp)">—</span></div>
+      <div class="kv-row"><span class="k">GP GHA</span><span class="v" id="vGpGha" style="color:var(--accent-gp)">—</span></div>
+      <div class="kv-row"><span class="k">GP Declination</span><span class="v" id="vGpDec" style="color:var(--accent-gp)">—</span></div>
       <div class="info-h sp">PZX triangle</div>
       <div class="kv-row"><span class="k">PZ — pole–observer arc (colatitude)</span><span class="v" id="vSideZ">—</span></div>
       <div class="kv-row"><span class="k">PX — pole–GP arc (polar distance)</span><span class="v" id="vSideP">—</span></div>
@@ -237,7 +239,10 @@ function getVisibleBodyIds(){ return visibleBodySlots.filter(s => s.enabled).map
 function buildBodyOptions(selectedValue='sun'){ const choices = [['sun','Sun'],['moon','Moon'],['venus','Venus'],['mars','Mars'],['jupiter','Jupiter'],['saturn','Saturn']]; STAR_CATALOG.forEach((s, i) => choices.push(['star_' + i, s[0] + ' (' + s[1] + ')'])); const frag = document.createDocumentFragment(); choices.forEach(([value, label]) => { const opt = document.createElement('option'); opt.value = value; opt.textContent = label; if(value === selectedValue) opt.selected = true; frag.appendChild(opt); }); return frag; }
 function populateVisibleBodyControls(){ const container = document.getElementById('visibleBodyControls'); container.innerHTML=''; visibleBodySlots.forEach((slot, idx) => { const row = document.createElement('div'); row.className = 'body-slot-row'; const chk = document.createElement('input'); chk.type='checkbox'; chk.checked = slot.enabled; chk.addEventListener('change', () => { visibleBodySlots[idx].enabled = chk.checked; rebuildScene(); }); const sel = document.createElement('select'); sel.appendChild(buildBodyOptions(slot.id)); sel.value = slot.id; sel.addEventListener('change', () => { visibleBodySlots[idx].id = sel.value; rebuildScene(); }); const hsField = document.createElement('input'); hsField.type = 'number'; hsField.step = '0.01'; hsField.placeholder = 'Hs°'; hsField.title = 'Observed altitude Hs for this body'; hsField.value = slot.hs || ''; hsField.addEventListener('input', () => { visibleBodySlots[idx].hs = hsField.value; rebuildScene(); }); row.appendChild(chk); row.appendChild(sel); row.appendChild(hsField); container.appendChild(row); }); }
 function populateBodySelect(){ const sel = document.getElementById('bodySel'); sel.innerHTML=''; sel.appendChild(buildBodyOptions('sun')); sel.value='sun'; populateVisibleBodyControls(); }
-function currentJD(){ const dStr = document.getElementById('dateIn').value; const tStr = document.getElementById('timeIn').value || '00:00:00'; const baseTime = new Date(`${dStr}T${tStr}Z`); const offsetHours = parseFloat(document.getElementById('timeOffsetSlider').value) || 0; const offsetTime = new Date(baseTime.getTime() + offsetHours * 3600000); return julianDate(offsetTime); }
+function effectiveUtcTime(){ const dStr = document.getElementById('dateIn').value; const tStr = document.getElementById('timeIn').value || '00:00:00'; const baseTime = new Date(`${dStr}T${tStr}Z`); const offsetHours = parseFloat(document.getElementById('timeOffsetSlider').value) || 0; return new Date(baseTime.getTime() + offsetHours * 3600000); }
+function currentJD(){ return julianDate(effectiveUtcTime()); }
+function formatUtcTime(date){ return date.toISOString().slice(0, 19).replace('T', ' ') + ' UTC'; }
+function updateEffectiveReadouts(gha, dec, effectiveTime){ const effectiveUtc = formatUtcTime(effectiveTime); document.getElementById('vGpGha').textContent = fmtDM(gha); document.getElementById('vGpDec').textContent = fmtLat(dec); document.getElementById('dateReadout').textContent = 'Calculation UTC ' + effectiveUtc + '   ·   AS ' + fmtLat(parseFloat(document.getElementById('latIn').value) || 0) + '  ' + fmtLon(parseFloat(document.getElementById('lonIn').value) || 0); const kioskDataEl = document.getElementById('kioskData'); if(kioskDataEl){ kioskDataEl.innerHTML = '<span class="kiosk-data-line">Calculation UTC ' + effectiveUtc + '  ·  AS ' + fmtLat(parseFloat(document.getElementById('latIn').value) || 0) + '  ' + fmtLon(parseFloat(document.getElementById('lonIn').value) || 0) + '</span><span class="kiosk-data-line">GHA ' + fmtDM(gha) + '  ·  Dec ' + fmtLat(dec) + '</span>'; } }
 function updateInfoPanel({ ra, dec, gha, lha, lat, lon, Hc, Zn, Z, bodyId, gpLat, gpLon, selectedPole }){ const bodyName = bodyId === 'sun' ? 'Sun' : bodyId === 'moon' ? 'Moon' : (PLANET_NAMES[bodyId] || (STAR_CATALOG[parseInt((bodyId.split('_')[1] || '0'), 10)] || ['Star'])[0]); const bodySub = bodyId === 'sun' || bodyId === 'moon' ? 'Solar System Body' : (PLANET_NAMES[bodyId] ? 'Navigational Planet' : 'Catalog Star'); document.getElementById('bodyName').textContent = bodyName; document.getElementById('bodySub').textContent = bodySub; document.getElementById('vGpLat').textContent = fmtLat(gpLat); document.getElementById('vGpLon').textContent = fmtLon(gpLon); document.getElementById('vHc').textContent = fmtDM(Hc); document.getElementById('vZn').textContent = fmtDM(Zn); document.getElementById('vGha').textContent = fmtDM(gha); document.getElementById('vDec').textContent = fmtLat(dec); document.getElementById('vLha').textContent = fmtDM(lha); document.getElementById('vSideZ').textContent = fmtDM(Math.abs(90 - lat)); document.getElementById('vSideP').textContent = fmtDM(Math.abs(90 - dec)); document.getElementById('vSideX').textContent = fmtDM(Math.abs(90 - Hc)); document.getElementById('vAngP').textContent = fmtDM(Math.abs(lha)); document.getElementById('vAngZ').textContent = fmtDM(Z); document.getElementById('dateReadout').textContent = document.getElementById('dateIn').value + '  ' + document.getElementById('timeIn').value + ' UTC   ·   AS ' + fmtLat(lat) + '  ' + fmtLon(lon); const kioskDataEl = document.getElementById('kioskData'); if(kioskDataEl){ kioskDataEl.innerHTML = '<span class="kiosk-data-line">' + document.getElementById('dateIn').value + '  ' + document.getElementById('timeIn').value + ' UTC  ·  AS ' + fmtLat(lat) + '  ' + fmtLon(lon) + '</span><span class="kiosk-data-line">LHA ' + fmtDM(lha) + '  ·  Dec ' + fmtLat(dec) + '</span><span class="kiosk-data-line">Hc ' + fmtDM(Hc) + '  ·  Zn ' + fmtDM(Zn) + '</span>'; } }
 function drawZenithalView(ctx, width, height, Hc, Zn, label){ const cx = width / 2; const cy = height / 2; const maxR = Math.min(width, height) * 0.38; ctx.clearRect(0,0,width,height); ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; for(const ring of [30,60,90]){ const r = maxR * (ring / 90); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='10px IBM Plex Mono'; ctx.fillText(`${ring}°`, cx + r - 8, cy - 5); } const bodyAngle = (Zn - 90) * DEG; const bodyR = maxR * ((90 - Hc) / 90); const bx = cx + Math.cos(bodyAngle) * bodyR; const by = cy + Math.sin(bodyAngle) * bodyR; ctx.fillStyle='#f2c766'; ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle='#ffffff'; ctx.font='12px Space Grotesk'; ctx.fillText(label, bx + 8, by - 8); ctx.fillStyle='#8fb5ff'; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle='#d6ddff'; ctx.font='11px IBM Plex Mono'; ctx.fillText('Zenith', cx + 8, cy - 10); }
 function drawObserverGreatCircleView(ctx, width, height, asLat, asLon, gpLat, gpLon, bodyDec, label){ const cx = width / 2; const cy = height / 2; ctx.clearRect(0,0,width,height); const obsX = cx; const obsY = cy + 70; const gpX = cx + 90; const gpY = cy - 30; const bodyX = cx - 40; const bodyY = cy - 90; ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(obsX, obsY); ctx.lineTo(gpX, gpY); ctx.lineTo(bodyX, bodyY); ctx.closePath(); ctx.stroke(); ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(obsX, obsY, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillText('Observer', obsX + 10, obsY - 8); ctx.fillStyle='#ff007f'; ctx.beginPath(); ctx.arc(gpX, gpY, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillText('GP', gpX + 10, gpY - 8); ctx.fillStyle='#f2c766'; ctx.beginPath(); ctx.arc(bodyX, bodyY, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillText(label, bodyX + 10, bodyY - 8); ctx.strokeStyle='#5b8dd9'; ctx.beginPath(); ctx.moveTo(obsX, obsY); ctx.lineTo(bodyX, bodyY); ctx.stroke(); ctx.fillStyle='rgba(180,200,255,0.7)'; ctx.font='11px IBM Plex Mono'; ctx.fillText(`AS ${fmtLat(asLat)} / ${fmtLon(asLon)}`, 20, 22); ctx.fillText(`GP ${fmtLat(gpLat)} / ${fmtLon(gpLon)}`, 20, 38); ctx.fillText(`Body Dec ${fmtLat(bodyDec)}`, 20, 54); }
@@ -252,7 +257,7 @@ document.getElementById('resetBtn').addEventListener('click', () => { activeView
 function rebuildScene(){ while(dynamicGroup.children.length) dynamicGroup.remove(dynamicGroup.children[0]); while(eclipticGroup.children.length) eclipticGroup.remove(eclipticGroup.children[0]); const lat = parseFloat(document.getElementById('latIn').value) || 0; const lon = parseFloat(document.getElementById('lonIn').value) || 0; const jd = currentJD(); const gha0 = gmstDeg(jd);
   const sunPos = sunPosition(jd); const sunGha = norm360(gha0 - sunPos.ra); const sunDirVec = latLonToVector3(sunPos.dec, norm180(-sunGha), 1); if(earthMaterial.userData.shader) earthMaterial.userData.shader.uniforms.sunDirection.value.copy(sunDirVec); sunLight.position.copy(sunDirVec).multiplyScalar(6);
   const bodyId = document.getElementById('bodySel').value; const focus = getBodyRaDec(bodyId, jd); const gha = norm360(gha0 - focus.ra); const gpLat = focus.dec; const gpLon = norm180(-gha); const lha = norm360(gha + lon); const { Hc, Zn, Z } = sightReduce(lha, focus.dec, lat); const posObserver = latLonToVector3(lat, lon, EARTH_R * 1.005); const posGP = latLonToVector3(gpLat, gpLon, EARTH_R * 1.005); const posNorthPole = latLonToVector3(90, 0, EARTH_R * 1.005); const posSouthPole = latLonToVector3(-90, 0, EARTH_R * 1.005); const posZenith = latLonToVector3(lat, lon, CELESTIAL_R); const posNCP = latLonToVector3(90, 0, CELESTIAL_R); const posSCP = latLonToVector3(-90, 0, CELESTIAL_R); if(eclipticVisible){ const eps = 23.439291 * DEG; const N = 128; const ringPts = []; for(let i=0;i<=N;i++){ const lambda = (i / N) * 360 * DEG; const raE = Math.atan2(Math.sin(lambda) * Math.cos(eps), Math.cos(lambda)); const decE = Math.asin(Math.sin(eps) * Math.sin(lambda)); const ghaE = norm360(gha0 - raE * RAD); const lonE = norm180(-ghaE); ringPts.push(latLonToVector3(decE * RAD, lonE, CELESTIAL_R)); } eclipticGroup.add(lineFromPoints(ringPts, 0xffbb33, 2, 0.7)); }
-  const latInput = document.getElementById('latIn').value.trim(); const lonInput = document.getElementById('lonIn').value.trim(); const hsVal = parseFloat(document.getElementById('hsIn').value); const circleAltitude = Number.isNaN(hsVal) ? Hc : hsVal; if(latInput !== '' && lonInput !== '' && Number.isFinite(circleAltitude)){ const circleRadiusDeg = 90 - circleAltitude; if(circleRadiusDeg > 0.05 && circleRadiusDeg < 179.95){ const circlePts = getSmallCirclePoints(posGP, circleRadiusDeg, EARTH_R * 1.008, 128); dynamicGroup.add(tubeFromPoints(circlePts, 0x6fb389, 0.009, 0.9)); } }
+  const hsRaw = document.getElementById('hsIn').value.trim(); const hsVal = parseFloat(hsRaw); if(hsRaw !== '' && Number.isFinite(hsVal) && hsVal > -90 && hsVal < 90){ const circleRadiusDeg = 90 - hsVal; const circlePts = getSmallCirclePoints(posGP, circleRadiusDeg, EARTH_R * 1.02, 128); const altitudeCircle = tubeFromPoints(circlePts, 0x6fb389, 0.018, 1); altitudeCircle.material.depthTest = false; altitudeCircle.renderOrder = 5; dynamicGroup.add(altitudeCircle); }
   const visibleIds = getVisibleBodyIds(); const bodySights = []; visibleBodySlots.forEach((slot) => { if(!slot.enabled || !slot.id) return; const visibleId = slot.id; const data = getBodyRaDec(visibleId, jd); const gh = norm360(gha0 - data.ra); const gpLatV = data.dec; const gpLonV = norm180(-gh); const p = latLonToVector3(gpLatV, gpLonV, CELESTIAL_R); const color = bodyPalette[visibleId] || bodyPalette.default; addBodyMarker(visibleId, p, visibleId === 'moon' ? 0.035 : 0.05, color); dynamicGroup.add(makeLabel(getBodyDisplayName(visibleId), p.clone().multiplyScalar(1.04), '#ffffff', 20)); const gpPosV = latLonToVector3(gpLatV, gpLonV, EARTH_R * 1.005); const gpMarker = addMarker(gpPosV, 0xff007f, 0.02); gpMarker.userData.kind = 'gpMarker'; if(radialLinesVisible) dynamicGroup.add(tubeFromPoints([gpPosV, p], color, 0.005, 0.55)); const hsNumV = parseFloat(slot.hs); if(slot.hs !== '' && slot.hs !== undefined && !Number.isNaN(hsNumV)){ const circleRadiusDegV = 90 - hsNumV; if(circleRadiusDegV > 0.05 && circleRadiusDegV < 179.95){ dynamicGroup.add(tubeFromPoints(getSmallCirclePoints(gpPosV, circleRadiusDegV, EARTH_R * 1.008, 128), color, 0.007, 0.85)); } const lhaV = norm360(gh + lon); const sightV = sightReduce(lhaV, gpLatV, lat); bodySights.push({ id:visibleId, color, Hc:sightV.Hc, Zn:sightV.Zn, hs:hsNumV }); } }); const focusMarker = addBodyMarker(bodyId, latLonToVector3(focus.dec, gpLon, CELESTIAL_R), 0.055, 0xf2c766); focusMarker.userData.kind = 'bodyMarker'; if(!visibleIds.includes(bodyId)){ dynamicGroup.add(makeLabel(getBodyDisplayName(bodyId), latLonToVector3(focus.dec, gpLon, CELESTIAL_R).multiplyScalar(1.04), '#f2c766', 20)); if(radialLinesVisible) dynamicGroup.add(tubeFromPoints([posGP, latLonToVector3(focus.dec, gpLon, CELESTIAL_R)], 0xf2c766, 0.005, 0.55)); } const gpFocusMarker = addMarker(posGP, 0xff007f, 0.025); gpFocusMarker.userData.kind = 'gpMarker'; const observerMarker = addMarker(posObserver, 0xffffff, 0.025); observerMarker.userData.kind = 'observer'; const northPoleMarker = addMarker(posNorthPole, 0xa481d6, 0.032); northPoleMarker.userData.kind = 'northPole'; const southPoleMarker = addMarker(posSouthPole, 0xa481d6, 0.032); southPoleMarker.userData.kind = 'southPole'; const zenithMarker = addMarker(posZenith, 0xffffff, 0.025); zenithMarker.userData.kind = 'zenith'; if(radialLinesVisible) dynamicGroup.add(tubeFromPoints([posObserver, posZenith], 0xffffff, 0.005, 0.55)); const polePos = selectedPole === 'N' ? posNorthPole : posSouthPole; const poleCelestialPos = selectedPole === 'N' ? posNCP : posSCP; if(triGroupVisible){ const sidePZ = getGreatCirclePoints(polePos, posObserver, 64, EARTH_R * 1.008); const sidePX = getGreatCirclePoints(polePos, posGP, 64, EARTH_R * 1.008); const sideZX = getGreatCirclePoints(posObserver, posGP, 64, EARTH_R * 1.008); dynamicGroup.add(tubeFromPoints(sidePZ, 0x5b8dd9, 0.009)); dynamicGroup.add(tubeFromPoints(sidePX, 0xe0b04a, 0.009)); dynamicGroup.add(tubeFromPoints(sideZX, 0xe0803f, 0.009)); const cSidePZ = getGreatCirclePoints(poleCelestialPos, posZenith, 64, CELESTIAL_R); const cSidePX = getGreatCirclePoints(poleCelestialPos, latLonToVector3(focus.dec, gpLon, CELESTIAL_R), 64, CELESTIAL_R); const cSideZX = getGreatCirclePoints(posZenith, latLonToVector3(focus.dec, gpLon, CELESTIAL_R), 64, CELESTIAL_R); dynamicGroup.add(lineFromPoints(cSidePZ, 0x5b8dd9, 1.5, 0.35, true)); dynamicGroup.add(lineFromPoints(cSidePX, 0xe0b04a, 1.5, 0.35, true)); dynamicGroup.add(lineFromPoints(cSideZX, 0xe0803f, 1.5, 0.35, true)); } dynamicGroup.add(makeLabel('North Pole', latLonToVector3(90, 0, EARTH_R * 1.15), '#d1c4e9', 26)); dynamicGroup.add(makeLabel('Observer', posObserver.clone().multiplyScalar(1.10), '#ffffff', 22)); dynamicGroup.add(makeLabel(`GP (${fmtLat(gpLat)}, ${fmtLon(gpLon)})`, posGP.clone().multiplyScalar(1.18), '#ff007f', 22)); updateInfoPanel({ ra:focus.ra, dec:focus.dec, gha, lha, lat, lon, Hc, Zn, Z, bodyId, gpLat, gpLon, selectedPole }); drawPlotSheet(lat, lon, Zn, Hc, bodySights); }
 document.getElementById('triToggle').addEventListener('click', () => { triGroupVisible = !triGroupVisible; document.getElementById('triToggle').classList.toggle('on', triGroupVisible); rebuildScene(); });
 document.getElementById('eclipticToggle').addEventListener('click', () => { eclipticVisible = !eclipticVisible; document.getElementById('eclipticToggle').classList.toggle('on', eclipticVisible); rebuildScene(); });
@@ -260,17 +265,103 @@ document.getElementById('radialToggle').addEventListener('click', () => { radial
 document.getElementById('eqPlaneToggle').addEventListener('click', () => { eqPlaneMesh.visible = !eqPlaneMesh.visible; document.getElementById('eqPlaneToggle').classList.toggle('on', eqPlaneMesh.visible); });
 document.getElementById('celSphereToggle').addEventListener('click', () => { celestialSphere.visible = !celestialSphere.visible; document.getElementById('celSphereToggle').classList.toggle('on', celestialSphere.visible); });
 document.getElementById('poleSel').addEventListener('change', (e) => { selectedPole = e.target.value; rebuildScene(); });
-document.getElementById('bodySel').addEventListener('change', rebuildScene);
+document.getElementById('bodySel').addEventListener('change', () => rebuildScene());
 function setNow(){ const now = new Date(); document.getElementById('dateIn').value = now.toISOString().slice(0,10); document.getElementById('timeIn').value = now.toISOString().slice(11,19); document.getElementById('timeOffsetSlider').value = 0; }
 document.getElementById('nowBtn').addEventListener('click', () => { setNow(); rebuildScene(); }); 
 document.getElementById('timeOffsetRange').addEventListener('change', (e) => { const maxHours = parseFloat(e.target.value); document.getElementById('timeOffsetSlider').min = -maxHours; document.getElementById('timeOffsetSlider').max = maxHours; document.getElementById('timeOffsetSlider').value = 0; rebuildScene(); });
-document.getElementById('timeOffsetSlider').addEventListener('input', rebuildScene);
-['latIn','lonIn','drLatIn','drLonIn','hsIn','dateIn','timeIn'].forEach(id => document.getElementById(id).addEventListener('input', rebuildScene)); document.getElementById('geoBtn').addEventListener('click', () => { const status = document.getElementById('geoStatus'); if(!navigator.geolocation){ status.textContent = 'Geolocation not supported by this browser.'; return; } status.textContent = 'Locating…'; navigator.geolocation.getCurrentPosition((pos) => { document.getElementById('latIn').value = pos.coords.latitude.toFixed(4); document.getElementById('lonIn').value = pos.coords.longitude.toFixed(4); document.getElementById('drLatIn').value = pos.coords.latitude.toFixed(4); document.getElementById('drLonIn').value = pos.coords.longitude.toFixed(4); status.textContent = `Set to ${fmtLat(pos.coords.latitude)}, ${fmtLon(pos.coords.longitude)}`; rebuildScene(); }, (err) => { status.textContent = 'Could not get location: ' + err.message; }, { enableHighAccuracy: true, timeout: 10000 }); });
+document.getElementById('timeOffsetSlider').addEventListener('input', () => rebuildScene());
+['latIn','lonIn','drLatIn','drLonIn','hsIn','dateIn','timeIn'].forEach(id => document.getElementById(id).addEventListener('input', () => rebuildScene())); document.getElementById('geoBtn').addEventListener('click', () => { const status = document.getElementById('geoStatus'); if(!navigator.geolocation){ status.textContent = 'Geolocation not supported by this browser.'; return; } status.textContent = 'Locating…'; navigator.geolocation.getCurrentPosition((pos) => { document.getElementById('latIn').value = pos.coords.latitude.toFixed(4); document.getElementById('lonIn').value = pos.coords.longitude.toFixed(4); document.getElementById('drLatIn').value = pos.coords.latitude.toFixed(4); document.getElementById('drLonIn').value = pos.coords.longitude.toFixed(4); status.textContent = `Set to ${fmtLat(pos.coords.latitude)}, ${fmtLon(pos.coords.longitude)}`; rebuildScene(); }, (err) => { status.textContent = 'Could not get location: ' + err.message; }, { enableHighAccuracy: true, timeout: 10000 }); });
 let kioskMode = false; document.getElementById('kioskBtn').addEventListener('click', function(){ kioskMode = !kioskMode; document.getElementById('app').classList.toggle('kiosk-mode', kioskMode); this.textContent = kioskMode ? '✕ Exit' : '🖥 Kiosk'; setTimeout(() => { resize(); rebuildScene(); }, 50); });
 function tickTime(){ const dt = new Date(`${document.getElementById('dateIn').value}T${document.getElementById('timeIn').value || '00:00:00'}Z`); dt.setUTCSeconds(dt.getUTCSeconds() + 1); document.getElementById('dateIn').value = dt.toISOString().slice(0,10); document.getElementById('timeIn').value = dt.toISOString().slice(11,19); rebuildScene(); }
 let timeRunning = true; let timeUpdateInterval = setInterval(tickTime, 1000);
 document.getElementById('timeToggleBtn').addEventListener('click', function(){ timeRunning = !timeRunning; if(timeRunning){ timeUpdateInterval = setInterval(tickTime, 1000); this.textContent = '⏸ Pause'; } else { clearInterval(timeUpdateInterval); this.textContent = '▶ Resume'; } });
 populateBodySelect(); setNow(); resize(); updateCamera(); rebuildScene(); function animate(){ requestAnimationFrame(animate); renderer.render(scene, camera); } animate();
+</script>
+<script>
+function annotatePlotSheet(){
+  if(activeView !== 'globe') return;
+  const canvas = document.getElementById('plotCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const range = 2, margin = 20;
+  const scale = (Math.min(W, H) / 2 - margin) / range;
+  const cx = W / 2, cy = H / 2;
+  const drLon = parseFloat(document.getElementById('drLonIn').value);
+  const drLat = parseFloat(document.getElementById('drLatIn').value);
+  if(Number.isNaN(drLon) || Number.isNaN(drLat)) return;
+  const toPx = (dLon, dLat) => [cx + dLon * scale, cy - dLat * scale];
+  ctx.save();
+  ctx.fillStyle = '#8f9ab8';
+  ctx.font = '9px IBM Plex Mono, monospace';
+  ctx.textAlign = 'center';
+  for(let i = -range; i <= range; i++){
+    const [x] = toPx(i, 0);
+    ctx.fillText(fmtLon(norm180(drLon + i)), x, H - 4);
+  }
+  ctx.fillStyle = '#d6ddff';
+  ctx.font = '10px Space Grotesk, sans-serif';
+  ctx.fillText('Longitude', cx, H - 16);
+  const asLon = parseFloat(document.getElementById('lonIn').value) || 0;
+  const asLat = parseFloat(document.getElementById('latIn').value) || 0;
+  const focusId = document.getElementById('bodySel').value;
+  const focusBody = getBodyRaDec(focusId, currentJD());
+  const focusGha = norm360(gmstDeg(currentJD()) - focusBody.ra);
+  const focusLha = norm360(focusGha + asLon);
+  const focusZn = sightReduce(focusLha, focusBody.dec, asLat).Zn;
+  if(Number.isFinite(focusZn)){
+    const znDistance = range * 120;
+    const cosLat = Math.cos(drLat * DEG);
+    const toOffset = (bearingDeg, distanceNm) => [(distanceNm / 60) * Math.sin(bearingDeg * DEG) / cosLat, (distanceNm / 60) * Math.cos(bearingDeg * DEG)];
+    const [znLon, znLat] = toOffset(focusZn, znDistance);
+    const [znLon1, znLat1] = toPx(asLon - drLon - znLon, asLat - drLat - znLat);
+    const [znLon2, znLat2] = toPx(asLon - drLon + znLon, asLat - drLat + znLat);
+    ctx.strokeStyle = '#8fb5ff';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(znLon1, znLat1);
+    ctx.lineTo(znLon2, znLat2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8fb5ff';
+    ctx.font = '9px IBM Plex Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Zn ${fmtDM(focusZn)}`, Math.min(W - 58, znLon2 - 54), Math.max(12, znLat2 - 4));
+  }
+  const hs = parseFloat(document.getElementById('hsIn').value);
+  if(!Number.isNaN(hs)){
+    const bodyId = document.getElementById('bodySel').value;
+    const jd = currentJD();
+    const body = getBodyRaDec(bodyId, jd);
+    const gha = norm360(gmstDeg(jd) - body.ra);
+    const lha = norm360(gha + (parseFloat(document.getElementById('lonIn').value) || 0));
+    const lat = parseFloat(document.getElementById('latIn').value) || 0;
+    const sight = sightReduce(lha, body.dec, lat);
+    const interceptNm = (hs - sight.Hc) * 60;
+    const cosLat = Math.cos(drLat * DEG);
+    const toOffset = (bearingDeg, distanceNm) => [(distanceNm / 60) * Math.sin(bearingDeg * DEG) / cosLat, (distanceNm / 60) * Math.cos(bearingDeg * DEG)];
+    const dLonAS = (parseFloat(document.getElementById('lonIn').value) || 0) - drLon;
+    const dLatAS = lat - drLat;
+    const [dLonP, dLatP] = toOffset(sight.Zn, interceptNm);
+    const [lineLon, lineLat] = toOffset(sight.Zn + 90, 0);
+    const [labelX, labelY] = toPx(dLonAS + dLonP + lineLon, dLatAS + dLatP + lineLat);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#6fb389';
+    ctx.fillText('LOP (Hs)', Math.min(W - 48, labelX + 4), Math.max(12, labelY - 4));
+  }
+  ctx.restore();
+}
+const sceneRebuild = rebuildScene;
+rebuildScene = function(){
+  sceneRebuild();
+  const effectiveTime = effectiveUtcTime();
+  const bodyId = document.getElementById('bodySel').value;
+  const focus = getBodyRaDec(bodyId, julianDate(effectiveTime));
+  const gha = norm360(gmstDeg(julianDate(effectiveTime)) - focus.ra);
+  updateEffectiveReadouts(gha, focus.dec, effectiveTime);
+  annotatePlotSheet();
+};
+rebuildScene();
 </script>
 </body>
 </html>
