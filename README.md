@@ -144,16 +144,16 @@ For a declination that falls between whole degrees, the navigator interpolates: 
 
 - An Earth globe rendered with a real satellite photo (NASA Blue Marble), an ocean specular mask, and a normal map for surface relief, layered over a procedurally drawn vector map that shows instantly and stays as an offline-safe fallback.
 - A real-time day/night terminator on Earth, driven by the actual computed Sun position, with city lights fading in on the night side.
-- Real photographic textures for the Sun, Moon, and visible planets, each with a small text label; unlisted bodies (stars) fall back to a flat catalog color.
+- Real photographic textures for the Sun, Moon, and visible planets, each with a small text label; the Moon is shaded from the computed Sun direction, leaving its far side dark and revealing its phase. Unlisted bodies (stars) fall back to a flat catalog color.
 - A virtual celestial sphere, equatorial plane, ecliptic plane, poles, Greenwich meridian, and starfield.
 - The selected body's geographic position (GP), the observer's assumed position (AS), and the celestial zenith.
 - The PZX spherical navigation triangle:
   - `P`: selected elevated pole, North or South.
   - `Z`: observer/zenith.
   - `X`: selected body's geographic position on Earth, or its corresponding celestial-sphere projection.
-- Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, and local hour angle `LHA`.
-- A circle of equal altitude (circle of position) drawn on the globe when an assumed position is present. The focus body's circle uses angular radius `90 - Hc`, or `90 - Hs` when an observed altitude is entered, and is centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
-- A plotting sheet centered on the dead-reckoning position, including the AS-to-intercept line and line of position (LOP) for the focus body, plus one additional colored LOP per visible body that has an Hs entered.
+- Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, local hour angle `LHA`, and selected-body GHA/declination in the GP section.
+- A circle of equal altitude drawn on the globe only when the focus body's `Hs` field contains a valid observed altitude. Its angular radius is exactly `90 - Hs`, centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
+- A plotting sheet centered on the dead-reckoning position, including longitude labels, the AS-to-intercept segment, the full Zn bearing line through AS, and the focus body's LOP through the intercept, plus one additional colored LOP per visible body that has an Hs entered.
 
 ## File architecture
 
@@ -163,9 +163,9 @@ For a declination that falls between whole degrees, the navigator interpolates: 
    - The header contains the triangle/ecliptic toggles and a kiosk-mode control.
    - The left sidebar contains navigation inputs, body selection, positions, and sight data.
    - The center viewport hosts the Three.js renderer.
-   - The right panel displays the plotting sheet and computed values.
+   - The right panel displays the plotting sheet, GP values, and computed values.
    - The footer exposes interaction hints and the camera reset button.
-   - Kiosk mode hides the sidebar, right panel, and footer, centers the viewport full-bleed, and overlays a compact readout of UTC time, AS position, LHA, declination, Hc, and Zn.
+   - Kiosk mode hides the sidebar, right panel, and footer, centers the viewport full-bleed, and overlays a compact readout of calculation UTC, AS position, GHA, declination, Hc, and Zn.
 
 2. **Astronomy math**
    - Angle normalization, Julian date, and J2000 epoch helpers.
@@ -192,7 +192,7 @@ For a declination that falls between whole degrees, the navigator interpolates: 
 The main computation path is:
 
 ```text
-UTC date/time
+Base UTC date/time + time offset
   -> Julian date
   -> GMST / GHA of Aries
   -> selected body's RA and Dec
@@ -202,7 +202,7 @@ UTC date/time
   -> 3D markers/arcs + right-side values + plotting sheet
 ```
 
-`rebuildScene()` clears `dynamicGroup` and `eclipticGroup`, reads the current controls, runs this pipeline, and then rebuilds all dynamic geometry. Static scene objects such as the Earth mesh, celestial sphere, equatorial plane, lights, and starfield are created once during initialization.
+`currentJD()` applies the selected hour offset to the base UTC fields before producing the Julian date. `rebuildScene()` clears `dynamicGroup` and `eclipticGroup`, reads the current controls, runs this pipeline, and then rebuilds all dynamic geometry. The viewport and kiosk readouts identify the resulting timestamp as `Calculation UTC`; the base date/time inputs remain unchanged. Static scene objects such as the Earth mesh, celestial sphere, equatorial plane, lights, and starfield are created once during initialization.
 
 ## Angle and time conventions
 
@@ -440,7 +440,7 @@ $$
 P(t) = r\big(\cos R \cdot c + \sin R \cdot (\cos t \cdot u + \sin t \cdot v)\big)
 $$
 
-for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - H` degrees from the body's GP, so an observation of altitude `H` places the observer somewhere on this circle. `rebuildScene()` draws the focus-body circle (as a tube, for the same line-width reasons as the triangle sides) when the assumed-position fields are populated, using `Hc` by default or the entered `Hs` when available. Visible bodies draw independent circles only when their own `Hs` is entered, centered on each body's GP.
+for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - H` degrees from the body's GP, so an observation of altitude `H` places the observer somewhere on this circle. `rebuildScene()` draws the focus-body circle only when a valid `Hs` is entered, using angular radius `90 - Hs` and the selected body's GP as its center. The focus circle is rendered as a visible overlay above the Earth surface. Visible bodies draw independent circles only when their own `Hs` is entered, centered on each body's GP.
 
 ### Ecliptic plane
 
@@ -458,7 +458,7 @@ Those coordinates are converted to GHA/longitude with the same sidereal rotation
 
 ## Plotting sheet
 
-`drawPlotSheet(asLat, asLon, Zn, Hc)` draws a square covering `+-2` degrees around the DR position.
+`drawPlotSheet(asLat, asLon, Zn, Hc)` draws a square covering `+-2` degrees around the DR position. The annotation pass adds longitude labels along the horizontal axis, plus a full dashed Zn bearing line through AS; the LOP remains perpendicular to that line and is labeled `LOP (Hs)`.
 
 - Horizontal coordinate is longitude difference from DR.
 - Vertical coordinate is latitude difference from DR.
@@ -534,9 +534,9 @@ The renderer uses a perspective camera, ambient light, a directional light (sync
 - **Use current UTC time:** fills the date/time controls and rebuilds.
 - **Use my location:** requests browser geolocation, updates AS and DR, then rebuilds.
 - **Time offset range:** supports 6, 12, 48, and 72 hours, plus 1 week, 1 month, 3 months, 6 months, and 1 year.
-- **Time offset slider:** applies a positive or negative hour offset to the entered UTC date/time for astronomy calculations and rebuilds without changing the base date/time fields.
+- **Time offset slider:** applies a positive or negative hour offset to the entered UTC date/time for astronomy calculations, displays the resulting `Calculation UTC`, and rebuilds without changing the base date/time fields.
 - **Visible-body Hs fields:** entering an observed altitude next to a visible body draws that body's circle of equal altitude on the globe and its line of position on the plotting sheet, colored to match the body; independent of the main "Sight Observation" Hs field for the focus body.
-- **Automatic time update:** the UTC time advances by one second every second, continuously rebuilding the scene.
+- **Automatic time update:** the base UTC time advances by one second every second; the effective `Calculation UTC` and all dependent values update continuously.
 - **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
 
 ## Accuracy and scope
