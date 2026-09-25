@@ -192,7 +192,7 @@ For a declination that falls between whole degrees, the navigator interpolates: 
 The main computation path is:
 
 ```text
-Base UTC date/time + time offset
+Displayed UTC date/time
   -> Julian date
   -> GMST / GHA of Aries
   -> selected body's RA and Dec
@@ -202,7 +202,7 @@ Base UTC date/time + time offset
   -> 3D markers/arcs + right-side values + plotting sheet
 ```
 
-`currentJD()` applies the selected hour offset to the base UTC fields before producing the Julian date. `rebuildScene()` clears `dynamicGroup` and `eclipticGroup`, reads the current controls, runs this pipeline, and then rebuilds all dynamic geometry. The viewport and kiosk readouts identify the resulting timestamp as `Calculation UTC`; the base date/time inputs remain unchanged. Static scene objects such as the Earth mesh, celestial sphere, equatorial plane, lights, and starfield are created once during initialization.
+`currentJD()` converts the UTC date/time fields directly to a Julian date. Moving the time-offset slider advances or rewinds those fields by the selected relative number of hours, so the controls, viewport, and kiosk readout always show the same calculation time. `rebuildScene()` clears `dynamicGroup` and `eclipticGroup`, reads the current controls, runs this pipeline, and then rebuilds all dynamic geometry. Static scene objects such as the Earth mesh, celestial sphere, equatorial plane, lights, and starfield are created once during initialization.
 
 ## Angle and time conventions
 
@@ -534,9 +534,9 @@ The renderer uses a perspective camera, ambient light, a directional light (sync
 - **Use current UTC time:** fills the date/time controls and rebuilds.
 - **Use my location:** requests browser geolocation, updates AS and DR, then rebuilds.
 - **Time offset range:** supports 6, 12, 48, and 72 hours, plus 1 week, 1 month, 3 months, 6 months, and 1 year.
-- **Time offset slider:** applies a positive or negative hour offset to the entered UTC date/time for astronomy calculations, displays the resulting `Calculation UTC`, and rebuilds without changing the base date/time fields.
+- **Time offset slider:** advances or rewinds the displayed UTC date/time by the selected relative number of hours, then rebuilds the scene from that same displayed calculation time.
 - **Visible-body Hs fields:** entering an observed altitude next to a visible body draws that body's circle of equal altitude on the globe and its line of position on the plotting sheet, colored to match the body; independent of the main "Sight Observation" Hs field for the focus body.
-- **Automatic time update:** the base UTC time advances by one second every second; the effective `Calculation UTC` and all dependent values update continuously.
+- **Automatic time update:** the displayed UTC time advances by one second every second, continuously updating all dependent values.
 - **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
 
 ## Accuracy and scope
