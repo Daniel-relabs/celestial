@@ -128,7 +128,125 @@ Before calculators and apps, GHA and Dec for every hour of every day came from t
 
 The Moon and planets also carry small **v** and **d** correction factors printed alongside their hourly GHA and Dec, because their rates of change are not perfectly uniform. For a sight taken between whole hours, the navigator looks up the minutes-and-seconds increment in a separate table (bound in yellow at the back of the almanac) and applies the `v`/`d` corrections proportionally. This application does the equivalent work continuously and exactly: `sunPosition()`, `moonPosition()`, `planetPosition()`, and the star catalog's `precessJ2000ToDate()` (see "Celestial-body positions" below) compute GHA and Dec directly from the formulas the almanac's own tables are generated from, for the precise instant selected, rather than interpolating between hourly entries.
 
-### 9. Sight reduction tables — example
+### 9. Lunar distance — finding GMT without a chronometer
+
+The **lunar distance method** is a historical celestial-navigation technique for determining Greenwich Mean Time (GMT) and, from it, a ship's longitude without relying on an accurate mechanical clock. The Moon moves across the background stars by roughly $0.5^\circ$ per hour, about its own apparent diameter, so it serves as the hand of a large celestial clock.
+
+Latitude was comparatively straightforward to establish from the altitude of Polaris or the Sun. Longitude required the time at a reference meridian such as Greenwich. A lunar observation supplied that missing reference time:
+
+1. **Observe the distance:** use a sextant to measure the angular distance between the Moon's limb and the Sun, a planet, or a bright navigational star.
+2. **Clear the lunar:** convert the limb-to-body observation to a geocentric centre-to-centre distance. The calculation accounts for the Moon's semi-diameter, atmospheric refraction, and the large lunar parallax caused by observing from Earth's surface rather than its centre. The observed altitudes used in the correction workflow also require their normal sight corrections, including horizon dip where applicable.
+3. **Find GMT:** compare the cleared distance with the *Nautical Almanac*'s tabulated Moon-to-body distances. The matching distance identifies the corresponding Greenwich time.
+4. **Find longitude:** determine local mean time from the Sun or stars, then compare it with GMT. Earth rotates $15^\circ$ per hour, so the time difference yields longitude.
+
+| Feature | Lunar distance method | Marine chronometer |
+|---|---|---|
+| Primary equipment | Sextant, *Nautical Almanac*, and calculation tables | Mechanical clock set to Greenwich time |
+| Complexity | High: clearing and interpolation required substantial calculation | Low: GMT is read directly from the clock |
+| 18th-century cost | Relatively accessible once a sextant and almanac were available | High: precision marine chronometers were hand-crafted instruments |
+| Vulnerability | Requires a visible Moon and clear enough sky | Sensitive to wear, motion, temperature, and humidity |
+
+Johannes Werner proposed the technique in 1514, but it became practical only in the late eighteenth century with Nevil Maskelyne's accurate ephemerides, the *Nautical Almanac* (first published in 1767), and precise sextants associated with makers such as John Bird. Lunar distances remained a major answer to the longitude problem until reliable chronometers became affordable in the nineteenth century. Radio time signals and, later, GPS displaced them for routine navigation, but the method remains an important part of deep-sea celestial-navigation practice and a valuable backup skill.
+
+#### Clearing a lunar distance
+
+"Clearing" a lunar distance turns the observed angular distance $D_o$, measured with a sextant from Earth's surface, into the true geocentric distance $D$ that would be seen from Earth's centre. Atmospheric refraction bends light upward and makes bodies appear higher, while lunar parallax shifts the Moon's apparent position because the observer is far from Earth's centre.
+
+The calculation starts with five corrected or observed values:
+
+1. **Observed lunar distance, $D_o$:** the index-error-corrected sextant angle between the Moon's limb and the Sun or reference star.
+2. **Apparent Moon altitude, $h'_m$:** the Moon-centre altitude above the apparent horizon after index and dip corrections.
+3. **Apparent body altitude, $h'_s$:** the Sun- or star-centre altitude after index and dip corrections.
+4. **True Moon altitude, $h_m$:** the apparent altitude corrected for refraction $R$ and horizontal parallax $HP$:
+
+$$
+h_m = h'_m - R + HP \cos(h'_m)
+$$
+
+5. **True Sun/star altitude, $h_s$:** the apparent altitude corrected for refraction, with solar parallax included when required:
+
+$$
+h_s = h'_s - R
+$$
+
+In the local celestial spherical triangle, the zenith $Z$ is the apex and the apparent Moon $M'$ and body $S'$ form the base. Refraction and parallax move each body along its zenith arc, so the included zenith angle remains unchanged while the apparent positions are converted to true ones.
+
+```text
+                         Zenith (Z)
+                              / \
+                            /   \
+            90 deg-h'm /  Z  \ 90 deg-h's
+                         /       \
+                Moon (M') --- Star (S')
+                               D_o
+```
+
+The spherical law of cosines for the apparent triangle is
+
+$$
+\cos(D_o) = \sin(h'_m)\sin(h'_s) + \cos(h'_m)\cos(h'_s)\cos(Z)
+$$
+
+so
+
+$$
+\cos(Z) = \frac{\cos(D_o) - \sin(h'_m)\sin(h'_s)}{\cos(h'_m)\cos(h'_s)}.
+$$
+
+Applying the same law to the true altitudes gives the rigorous clearing equation:
+
+$$
+\cos(D) = \sin(h_m)\sin(h_s) + \cos(h_m)\cos(h_s)
+\left[
+   \frac{\cos(D_o) - \sin(h'_m)\sin(h'_s)}{\cos(h'_m)\cos(h'_s)}
+\right].
+$$
+
+Historical navigators often used haversine forms, such as the Dunthorne/Young approach, because positive log-table calculations were less prone to arithmetic mistakes. With
+
+$$
+\operatorname{hav}(\theta) = \frac{1 - \cos(\theta)}{2} = \sin^2\left(\frac{\theta}{2}\right),
+$$
+
+calculate the apparent-to-true altitude changes
+
+$$
+\Delta h_m = h_m - h'_m, \qquad \Delta h_s = h_s - h'_s,
+$$
+
+then the cosine scaling factor
+
+$$
+C = \sqrt{\frac{\cos(h_m)\cos(h_s)}{\cos(h'_m)\cos(h'_s)}}.
+$$
+
+One compact haversine form is
+
+$$
+\operatorname{hav}(k) = C^2\left[\operatorname{hav}(D_o) - \operatorname{hav}(h'_m-h'_s)\right],
+$$
+
+followed by
+
+$$
+\operatorname{hav}(D) = \operatorname{hav}(h_m-h_s) + \operatorname{hav}(k),
+$$
+
+and finally
+
+$$
+D = 2\arcsin\left(\sqrt{\operatorname{hav}(D)}\right).
+$$
+
+Once the cleared distance is known, find the two *Nautical Almanac* entries that bound it. With $D_1$ and $D_2$ tabulated at times $T_1$ and $T_2$, linear interpolation gives
+
+$$
+GMT = T_1 + (T_2 - T_1)\frac{D-D_1}{D_2-D_1}.
+$$
+
+Historical lunar-distance tables commonly used three-hour intervals, making $T_2-T_1 = 3\ \text{hours}$. Comparing the recovered GMT with local mean time gives longitude at $15^\circ$ per hour. The application's Lunar Distance panel performs the geometric clearing directly, also reports almanac-style linear and cubic interpolations, and uses its ephemeris solution as the reference result.
+
+### 10. Sight reduction tables — example
 
 Before hand calculators, computing `Hc` and `Zn` from `Lat`, `Dec`, and `LHA` (the spherical-trigonometry formulae in "Sight-reduction formulae" below) meant either a slide rule and haversine tables, or one of the precomputed *sight reduction tables* (such as Pub. 229 or Pub. 249). These tables tabulate `Hc`, a rate-of-change factor `d`, and azimuth angle `Z` for every whole-degree combination of assumed latitude, LHA, and declination, so a navigator could look up a sight instead of computing one. An excerpt for `Lat = 40° N`, `LHA = 315°`:
 
@@ -154,10 +272,11 @@ For a declination that falls between whole degrees, the navigator interpolates: 
 - Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, local hour angle `LHA`, and selected-body GHA/declination in the GP section.
 - A circle of equal altitude drawn on the globe only when the focus body's `Hs` field contains a valid observed altitude. Its angular radius is exactly `90 - Hs`, centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
 - A plotting sheet centered on the dead-reckoning position, including longitude labels, the AS-to-intercept segment, the full Zn bearing line through AS, and the focus body's LOP through the intercept, plus one additional colored LOP per visible body that has an Hs entered.
+- A Lunar Distance panel for clearing a measured Moon-to-Sun or Moon-to-star distance, recovering GMT, comparing almanac interpolation with the direct solution, and applying the solved time back to the sphere.
 
 ## File architecture
 
-`index.html` is intentionally a single-file application. It contains four layers:
+`index.html` is intentionally a single-file application. It contains five layers:
 
 1. **Markup and styling**
    - The header contains the triangle/ecliptic toggles and a kiosk-mode control.
@@ -187,6 +306,11 @@ For a declination that falls between whole degrees, the navigator interpolates: 
    - Camera events update only the camera; astronomy data is not recomputed for camera motion.
    - A one-second interval timer advances the displayed UTC time by one second and rebuilds the scene automatically, keeping the visualization and computed values live without user input.
 
+5. **Lunar-distance solver**
+   - A self-contained ephemeris for the Moon, Sun, and navigational stars.
+   - Correction for lunar semi-diameter, horizontal parallax, and atmospheric refraction before solving the geocentric distance.
+   - An almanac-style distance table, linear/cubic interpolation comparison, simulated sights, and GMT recovery.
+
 ## Data flow
 
 The main computation path is:
@@ -203,6 +327,12 @@ Displayed UTC date/time
 ```
 
 `currentJD()` converts the UTC date/time fields directly to a Julian date. Moving the time-offset slider advances or rewinds those fields by the selected relative number of hours, so the controls, viewport, and kiosk readout always show the same calculation time. `rebuildScene()` clears `dynamicGroup` and `eclipticGroup`, reads the current controls, runs this pipeline, and then rebuilds all dynamic geometry. Static scene objects such as the Earth mesh, celestial sphere, equatorial plane, lights, and starfield are created once during initialization.
+
+## Lunar-distance workflow
+
+Open **Lunar Distance** from the header to derive GMT from a sextant observation. The panel is prefilled from the sphere's displayed UTC time and DR position. Select the Sun or a navigational star, enter the observed Moon-to-body distance and, when available, the apparent altitudes of both bodies. The solver clears the observation to a geocentric distance using limb, semi-diameter, refraction, and parallax corrections, then searches for the corresponding GMT near the watch time.
+
+The result includes the recovered GMT, watch error, distance rate, sensitivity of longitude to a distance error, and an almanac-style table of Moon-to-body distances. **Simulate a sight** provides a well-conditioned example; **Set sphere clock to this GMT** pauses the live sphere clock and transfers the solved time and selected body back to the visualization.
 
 ## Angle and time conventions
 
@@ -538,6 +668,7 @@ The renderer uses a perspective camera, ambient light, a directional light (sync
 - **Visible-body Hs fields:** entering an observed altitude next to a visible body draws that body's circle of equal altitude on the globe and its line of position on the plotting sheet, colored to match the body; independent of the main "Sight Observation" Hs field for the focus body.
 - **Automatic time update:** the displayed UTC time advances by one second every second, continuously updating all dependent values.
 - **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
+- **Lunar Distance:** opens the lunar-distance sight solver. The panel can simulate a sight, calculate GMT, and set the paused sphere clock to the recovered time.
 
 ## Accuracy and scope
 
@@ -550,6 +681,8 @@ This is an educational visualization, not a certified navigation calculator. Imp
 - The star catalog coordinates are intentionally compact and approximate.
 - The satellite Earth photo and Sun/Moon/planet photos are illustrative imagery, not navigational charts; the procedural vector map is a simplified fallback, not a geographic dataset.
 - WebGL line width is effectively limited on many platforms, so primary triangle edges use tube geometry for visual weight.
+
+The lunar-distance panel uses a more detailed calculation than the globe view: Meeus lunar terms, truncated VSOP87 Earth/Sun terms, stellar proper motion and aberration, plus refraction and topocentric lunar corrections. It still omits observational and instrument errors, star parallax, gravitational light deflection, unusual refraction, and the Moon's changing apparent limb near the horizon.
 
 For real navigation, compare results with an approved nautical almanac and apply the complete sight-correction workflow.
 
