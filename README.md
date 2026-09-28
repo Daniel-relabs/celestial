@@ -269,6 +269,7 @@ For a declination that falls between whole degrees, the navigator interpolates: 
   - `P`: selected elevated pole, North or South.
   - `Z`: observer/zenith.
   - `X`: selected body's geographic position on Earth, or its corresponding celestial-sphere projection.
+  - Each enabled visible body (up to 8 slots, defaulting to Sun, Moon, Venus, Mars, Jupiter, Saturn, Polaris, and Sirius) also gets its own `PX`/`ZX` sides, drawn thinner and more transparent than the focus body's triangle so the focus body's triangle stays the primary read; the shared `PZ` side (pole to observer) is drawn once. A visible body's triangle is skipped when it is also the focus body, since the bold focus triangle already covers that vertex.
 - Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, local hour angle `LHA`, and selected-body GHA/declination in the GP section.
 - A circle of equal altitude drawn on the globe only when the focus body's `Hs` field contains a valid observed altitude. Its angular radius is exactly `90 - Hs`, centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
 - A plotting sheet centered on the dead-reckoning position, including longitude labels, the AS-to-intercept segment, the full Zn bearing line through AS, and the focus body's LOP through the intercept, plus one additional colored LOP per visible body that has an Hs entered.
