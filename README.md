@@ -2,7 +2,7 @@
 
 A self-contained browser visualization for celestial navigation. The app combines a Three.js 3D globe with a compact sight-reduction panel and a plotting sheet for the intercept method.
 
-Open `index.html` directly in a modern browser. The page loads Three.js r128 and two fonts from CDNs, so an internet connection is needed for those and for the satellite Earth imagery (also CDN-hosted); the Sun/Moon/planet textures are embedded directly in the file and always render, even offline.
+Open `index.html` directly in a modern browser. The page loads Three.js r128 and two fonts from CDNs, so an internet connection is needed for those and for the satellite Earth imagery (also CDN-hosted); the Sun/Moon/planet textures are embedded directly in the file and always render, even offline. A companion slide deck, `slides.html`, is linked from the header (**Slides**) and opens in a new tab.
 
 ## A primer on celestial navigation
 
@@ -272,14 +272,17 @@ For a declination that falls between whole degrees, the navigator interpolates: 
 - Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, local hour angle `LHA`, and selected-body GHA/declination in the GP section.
 - A circle of equal altitude drawn on the globe only when the focus body's `Hs` field contains a valid observed altitude. Its angular radius is exactly `90 - Hs`, centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
 - A plotting sheet centered on the dead-reckoning position, including longitude labels, the AS-to-intercept segment, the full Zn bearing line through AS, and the focus body's LOP through the intercept, plus one additional colored LOP per visible body that has an Hs entered.
-- A Lunar Distance panel for clearing a measured Moon-to-Sun or Moon-to-star distance, recovering GMT, comparing almanac interpolation with the direct solution, and applying the solved time back to the sphere.
+- A Lunar Distance panel for clearing a measured Moon-to-Sun or Moon-to-star distance, recovering GMT, comparing almanac interpolation with the direct solution, and applying the solved time back to the sphere. Planets are intentionally not offered there; the low-precision planetary ephemeris used elsewhere in the app is not accurate enough for the arcsecond-level distances the solver needs.
+- A real-time Moon phase icon in the viewport, drawn from the actual computed Sun/Moon elongation, independent of the 3D camera.
+- Two alternate views of the plotting-sheet panel, reached by clicking the globe: a zenithal (polar) view centered on the observer's zenith when clicking the elevated pole marker, and an observer-centered great-circle sketch when clicking the observer (AS) marker; clicking empty space returns to the standard plotting sheet.
+- A schematic heliocentric "Seasons & zodiac" view (the **Seasons & zodiac** toggle) showing Earth's real position on its orbit around the Sun, the ecliptic plane, the 12 zodiac constellations, and the Moon in its true apparent direction from Earth, at artistic (non-physical) distances and sizes.
 
 ## File architecture
 
 `index.html` is intentionally a single-file application. It contains five layers:
 
 1. **Markup and styling**
-   - The header contains the triangle/ecliptic toggles and a kiosk-mode control.
+   - The header contains six display toggles (Nav triangle, Ecliptic, Sight lines, Equatorial plane, Celestial sphere, Seasons & zodiac), plus the Lunar distance, Slides, time Pause/Resume, and Kiosk controls.
    - The left sidebar contains navigation inputs, body selection, positions, and sight data.
    - The center viewport hosts the Three.js renderer.
    - The right panel displays the plotting sheet, GP values, and computed values.
@@ -621,12 +624,13 @@ The plotting sheet is a local flat approximation. It is appropriate for the smal
 
 ## Rendering model
 
-The scene has two dynamic groups:
+The scene has three groups:
 
 - `dynamicGroup` is attached to `earthGroup` and contains markers, labels, Earth arcs, the Greenwich meridian, and the celestial triangle.
 - `eclipticGroup` is attached to the scene and contains the ecliptic ring and translucent fan.
+- `helioGroup` holds the schematic Sun/Earth/Moon/zodiac scene for the heliocentric "Seasons & zodiac" view (see below) and is hidden until that view is toggled on.
 
-On every rebuild, children in these groups are removed and recreated. This keeps the implementation straightforward and ensures that changing time, body, observer position, pole, or sight data updates every dependent visual consistently.
+On every rebuild, children in `dynamicGroup` and `eclipticGroup` are removed and recreated. This keeps the implementation straightforward and ensures that changing time, body, observer position, pole, or sight data updates every dependent visual consistently. `helioGroup`'s meshes are created once and only repositioned per rebuild (see below), since the view is schematic rather than data-driven per element.
 
 ### Earth material
 
@@ -653,6 +657,19 @@ Once loaded asynchronously from a CDN, three photographic maps are layered onto 
 
 The renderer uses a perspective camera, ambient light, a directional light (synced to the real Sun direction, see above), antialiased WebGL output, and a pixel-ratio cap of 2.
 
+### Heliocentric Seasons & zodiac view
+
+Toggling **Seasons & zodiac** swaps the geocentric globe for a schematic solar-system view, meant for teaching orbital motion and the zodiac rather than for sight reduction:
+
+- `earthGroup`, `celestialSphere`, `eqPlaneMesh`, and `eclipticGroup` are hidden, `helioGroup` is shown, and the camera is recentered to orbit the ecliptic pole (rather than the celestial pole) so every horizontal viewpoint sweeps flat around the ecliptic.
+- `rebuildHelioScene()` computes Earth's true heliocentric ecliptic position from `heliocentricEcliptic('earth', T)`, rotates it into the same right-handed equatorial-aligned frame used elsewhere, and positions the Earth mesh and its equatorial-plane disc there (both at the schematic `HELIO_AU_R` radius, unrelated to `EARTH_R`/`CELESTIAL_R`).
+- A dashed Sun–Earth line extends from Earth out through the star dome, illustrating Earth's current position on its orbit.
+- The Moon mesh is placed at a fixed artistic orbital distance (`HELIO_MOON_ORBIT_R`) from Earth, but along the real computed direction from `moonPosition()`; `lookAt(earthPos)` keeps the same hemisphere always facing Earth, illustrating tidal locking.
+- A wireframe star dome (`helioStarDome`) is plotted directly from the star catalog's RA/Dec, and the 12 `ZODIAC_SIGNS` are labeled at equal 30° divisions of ecliptic longitude starting at the vernal equinox (Aries), around the edge of a translucent ecliptic-plane disc tilted by the obliquity `ε` from Earth's equatorial plane.
+- A point light at the Sun's mesh drives ordinary Phong shading on Earth and the Moon, so both bodies show a real terminator and the Moon shows its correct phase, with no custom shader needed.
+- `animate()` spins the Earth mesh continuously (one rotation every `HELIO_DAY_SECONDS` = 10 real seconds) purely for illustration; this spin is not tied to the displayed UTC clock or date.
+- While the view is active, the time-offset range and slider are temporarily widened to ±1 year (restored to their previous values on toggling off), and the plotting sheet is blanked with an explanatory note, since sight reduction has no meaning in this view.
+
 ## Interaction model
 
 - **Left drag:** orbit the camera around the scene.
@@ -661,14 +678,21 @@ The renderer uses a perspective camera, ambient light, a directional light (sync
 - **Reset view:** restores the initial radius, angles, and target.
 - **Nav triangle toggle:** rebuilds without the Earth/celestial PZX triangle.
 - **Ecliptic toggle:** rebuilds without the ecliptic ring, fan, and label.
+- **Sight lines toggle:** rebuilds without the GP-to-body radial lines connecting each body's Earth-surface GP to its celestial-sphere position.
+- **Equatorial plane toggle:** shows or hides the translucent equatorial plane disc, without a scene rebuild.
+- **Celestial sphere toggle:** shows or hides the wireframe celestial sphere, without a scene rebuild.
+- **Seasons & zodiac toggle:** switches to the schematic heliocentric view described above, in place of the geocentric globe; toggling it off restores the previous camera position, visibility, and time-offset range.
+- **Click the globe:** clicking the elevated pole marker switches the plotting-sheet panel to a zenithal (polar) view; clicking the observer (AS) marker switches it to an observer-centered great-circle sketch; clicking empty space (or any other marker) returns to the standard plotting sheet.
 - **Use current UTC time:** fills the date/time controls and rebuilds.
 - **Use my location:** requests browser geolocation, updates AS and DR, then rebuilds.
 - **Time offset range:** supports 6, 12, 48, and 72 hours, plus 1 week, 1 month, 3 months, 6 months, and 1 year.
 - **Time offset slider:** advances or rewinds the displayed UTC date/time by the selected relative number of hours, then rebuilds the scene from that same displayed calculation time.
 - **Visible-body Hs fields:** entering an observed altitude next to a visible body draws that body's circle of equal altitude on the globe and its line of position on the plotting sheet, colored to match the body; independent of the main "Sight Observation" Hs field for the focus body.
-- **Automatic time update:** the displayed UTC time advances by one second every second, continuously updating all dependent values.
+- **Automatic time update:** the displayed UTC time advances by one second every second, continuously updating all dependent values, until paused.
+- **Pause / Resume:** stops or restarts the automatic one-second time advance, so a specific instant can be held still while other controls (pole, toggles, camera) are explored.
 - **Kiosk mode:** toggles a full-screen presentation layout with a centered globe and an overlaid data readout; click the exit control (top right) to return to the normal layout.
 - **Lunar Distance:** opens the lunar-distance sight solver. The panel can simulate a sight, calculate GMT, and set the paused sphere clock to the recovered time.
+- **Slides:** opens the companion slide deck (`slides.html`) in a new tab.
 
 ## Accuracy and scope
 
@@ -701,3 +725,30 @@ The most useful places to extend the application are:
 - Add correction terms before `sightReduce()` or expose corrected altitude as a separate input.
 - Replace `drawPlotSheet()` with a geodesic or chart projection if the plotting area grows beyond a few degrees.
 - Split the inline script into modules once the application needs automated testing or multiple views.
+
+## Versioning
+
+The header's version tag (next to the title) is stamped from `git describe --tags` — the nearest tag, or `<tag>-<commits>-g<hash>` when the working tree has moved past the last tag. It updates automatically because `core.hooksPath` is set to the repo's tracked `.githooks/`, whose `pre-commit` hook rewrites the version `<span>` in `index.html` and re-stages it before every commit. A fresh clone needs to opt in once with:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+### Bumping the version
+
+The version is never edited by hand in `index.html`. To release a new version:
+
+1. Tag the release:
+   ```sh
+   git tag v0.1.2
+   ```
+2. Make a commit (an empty one is fine if nothing else changed) so the pre-commit hook fires and re-stamps `index.html`:
+   ```sh
+   git commit --allow-empty -m "Release v0.1.2"
+   ```
+3. Push the commit and the tag:
+   ```sh
+   git push && git push --tags
+   ```
+
+To preview the stamp without committing, run the hook directly: `sh .githooks/pre-commit`. Between tags the stamp reads like `v0.1.1-3-gabc1234` (3 commits past `v0.1.1`) until the next tag is cut.
