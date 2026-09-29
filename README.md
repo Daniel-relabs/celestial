@@ -126,7 +126,7 @@ Before calculators and apps, GHA and Dec for every hour of every day came from t
 | Regulus | 207°38.9′ | N 11°55.0′ |
 | Sirius | 258°45.1′ | S 16°43.1′ |
 
-The Moon and planets also carry small **v** and **d** correction factors printed alongside their hourly GHA and Dec, because their rates of change are not perfectly uniform. For a sight taken between whole hours, the navigator looks up the minutes-and-seconds increment in a separate table (bound in yellow at the back of the almanac) and applies the `v`/`d` corrections proportionally. This application does the equivalent work continuously and exactly: `sunPosition()`, `moonPosition()`, `planetPosition()`, and the star catalog's `precessJ2000ToDate()` (see "Celestial-body positions" below) compute GHA and Dec directly from the formulas the almanac's own tables are generated from, for the precise instant selected, rather than interpolating between hourly entries.
+The Moon and planets also carry small **v** and **d** correction factors printed alongside their hourly GHA and Dec, because their rates of change are not perfectly uniform. For a sight taken between whole hours, the navigator looks up the minutes-and-seconds increment in a separate table (bound in yellow at the back of the almanac) and applies the `v`/`d` corrections proportionally. This application does the equivalent work continuously and exactly: `getBodyRaDec()` (backed by the `LD` precision engine and, for stars, precession/proper-motion) (see "Celestial-body positions" below) compute GHA and Dec directly from the formulas the almanac's own tables are generated from, for the precise instant selected, rather than interpolating between hourly entries.
 
 ### 9. Lunar distance — finding GMT without a chronometer
 
@@ -171,15 +171,7 @@ $$
 
 In the local celestial spherical triangle, the zenith $Z$ is the apex and the apparent Moon $M'$ and body $S'$ form the base. Refraction and parallax move each body along its zenith arc, so the included zenith angle remains unchanged while the apparent positions are converted to true ones.
 
-```text
-                         Zenith (Z)
-                              / \
-                            /   \
-            90 deg-h'm /  Z  \ 90 deg-h's
-                         /       \
-                Moon (M') --- Star (S')
-                               D_o
-```
+<p align="center"><img src="diagrams/lunar-clearing-triangle.svg" alt="The apparent triangle at the zenith, with the Moon and Sun/star at the base and the zenith angle Z at the apex" width="480"></p>
 
 The spherical law of cosines for the apparent triangle is
 
@@ -271,7 +263,10 @@ For a declination that falls between whole degrees, the navigator interpolates: 
   - `X`: selected body's geographic position on Earth, or its corresponding celestial-sphere projection.
   - Each enabled visible body (up to 8 slots, defaulting to Moon, Venus, Mars, Jupiter, Saturn, Polaris, Sirius, and Vega — deliberately excluding the default Sun focus body so nothing repeats) also gets its own `PX`/`ZX` sides, drawn thinner and more transparent than the focus body's triangle so the focus body's triangle stays the primary read; the shared `PZ` side (pole to observer) is drawn once. A visible body's triangle is skipped when it is also the focus body, since the bold focus triangle already covers that vertex.
 - Computed altitude `Hc`, true azimuth `Zn`, Greenwich hour angle `GHA`, declination, local hour angle `LHA`, and selected-body GHA/declination in the GP section.
-- A circle of equal altitude drawn on the globe only when the focus body's `Hs` field contains a valid observed altitude. Its angular radius is exactly `90 - Hs`, centered on that body's GP. Visible bodies can draw independent circles from their own `Hs` fields, each in that body's palette color.
+- A circle of equal altitude drawn on the globe only when the focus body's `Hs` field contains a valid observed altitude. Its angular radius is exactly `90 - Ho`, centered on that body's GP, where `Ho` is `Hs` corrected for index error, dip, refraction, parallax, and (Sun/Moon) semi-diameter. Visible bodies can draw independent circles from their own `Hs`/limb fields, each in that body's palette color.
+- Sextant altitude-correction inputs alongside `Hs`: index error, height of eye, limb (center/lower/upper, Sun and Moon only), pressure, and temperature. These feed the same `Ho` used everywhere else, so a single set of readings drives the circle of equal altitude, the plotting-sheet LOP, and the computed-values panel consistently.
+- A precision readout in the computed-values panel: an `Eph` row stating the active body's ephemeris accuracy (arcsecond-level for the Sun/Moon/stars, roughly 1′ for planets), and — whenever that body has an `Ho` — a `Corr` row breaking the Hs → Ho correction down into its dip / refraction / parallax / semi-diameter components, plus a one-line reminder that each 1′ of residual error in `Hs`, `IC`, dip, or the ephemeris itself shifts the intercept by about 1 nm.
+- An `Ho` row and an `Intercept (Ho−Hc)` row in the computed-values panel whenever a body has a valid `Hs` entered, alongside `Hc`, `Zn`, `GHA`, `Dec`, and `LHA`.
 - A plotting sheet centered on the dead-reckoning position, including longitude labels, the AS-to-intercept segment, the full Zn bearing line through AS, and the focus body's LOP through the intercept, plus one additional colored LOP per visible body that has an Hs entered.
 - A Lunar Distance panel for clearing a measured Moon-to-Sun or Moon-to-star distance, recovering GMT, comparing almanac interpolation with the direct solution, and applying the solved time back to the sphere. Planets are intentionally not offered there; the low-precision planetary ephemeris used elsewhere in the app is not accurate enough for the arcsecond-level distances the solver needs.
 - A real-time Moon phase icon in the viewport, drawn from the actual computed Sun/Moon elongation, independent of the 3D camera.
@@ -292,11 +287,11 @@ For a declination that falls between whole degrees, the navigator interpolates: 
 
 2. **Astronomy math**
    - Angle normalization, Julian date, and J2000 epoch helpers.
-   - Approximate Sun and Moon positions.
-   - A fixed navigational star catalog with J2000 right ascension and declination.
-   - Low-precision orbital elements for Venus, Mars, Jupiter, and Saturn.
+   - A unified precision ephemeris (`LD` module): VSOP87D Sun, Meeus lunar theory, precessed/aberration-corrected stars with proper motion, and Keplerian-elements planets with light-time and aberration.
+   - A fixed navigational star catalog (57 stars) with J2000 right ascension, declination, and proper motion.
+   - Sextant altitude corrections: index error, dip, atmospheric refraction, horizontal parallax, and semi-diameter (Hs → Ho).
    - Conversion from body right ascension/declination to GHA, LHA, GP latitude, and GP longitude.
-   - Spherical sight reduction for altitude and azimuth.
+   - Spherical sight reduction for altitude and azimuth (singularity-free `atan2` azimuth formula).
 
 3. **2D/3D geometry**
    - Canvas rendering for the plotting sheet.
@@ -396,90 +391,49 @@ Both results are normalized with `norm360()`.
 
 ## Celestial-body positions
 
+The Sun, Moon, stars, and planets all resolve through a single precision engine (the `LD` module),
+via `getBodyRaDec(id, jd)` → `LD.raDecApparent(id, jdUT, deltaT)`. Body position is evaluated at
+Terrestrial Time (`jdTT = jdUT + ΔT`), while Greenwich sidereal time (`gmstDeg`) stays on UT, matching
+standard practice.
+
 ### Sun
 
-`sunPosition(jd)` uses a low-precision solar model:
-
-1. Compute the mean longitude `L0` and mean anomaly `M`.
-2. Compute the equation of center:
-
-$$
-C = A_1\sin M + A_2\sin(2M) + A_3\sin(3M)
-$$
-
-3. Set true ecliptic longitude to `L0 + C`.
-4. Convert ecliptic longitude to equatorial right ascension and declination using the obliquity `epsilon`:
+`LD.sunApparent(jde)` evaluates VSOP87D Earth (`earthHelio`), applies the FK5 frame correction,
+annual aberration, and light-time, then converts to equatorial coordinates using the IAU 2006 mean
+obliquity (`meanObliquity(T)`):
 
 $$
-RA = \mathrm{atan2}(\cos\epsilon\sin\lambda, \cos\lambda)
-$$
-
-$$
-Dec = \arcsin(\sin\epsilon\sin\lambda)
-$$
-
-The obliquity is approximated by:
-
-$$
-\epsilon = 23.439291 - 0.0130042T
+RA = \mathrm{atan2}(\cos\epsilon\sin\lambda, \cos\lambda), \qquad Dec = \arcsin(\sin\epsilon\sin\lambda)
 $$
 
 ### Moon
 
-`moonPosition(jd)` uses a truncated periodic model for ecliptic longitude and latitude. The principal terms are summed in degrees, then transformed to equatorial coordinates:
-
-$$
-RA = \mathrm{atan2}(\sin\lambda\cos\epsilon - \tan\beta\sin\epsilon, \cos\lambda)
-$$
-
-$$
-Dec = \arcsin(\sin\beta\cos\epsilon + \cos\beta\sin\epsilon\sin\lambda)
-$$
-
-Here `lambda` is ecliptic longitude and `beta` is ecliptic latitude.
+`LD.moonApparent(jde)` evaluates the Meeus ELP-2000-derived lunar theory (`moonEcliptic`, ~60+60
+periodic terms), retarded for light-time, then converts to equatorial coordinates the same way.
 
 ### Stars
 
-The star catalog contains fixed J2000 right ascensions and declinations. `precessJ2000ToDate()` applies the IAU-style zeta, z, and theta precession angles:
-
-$$
-\zeta = (2306.2181T + 0.30188T^2 + 0.017998T^3)\,\text{arcsec}
-$$
-
-$$
-z = (2306.2181T + 1.09468T^2 + 0.018203T^3)\,\text{arcsec}
-$$
-
-$$
-\theta = (2004.3109T - 0.42665T^2 - 0.041833T^3)\,\text{arcsec}
-$$
-
-The resulting coordinates are returned as date-of-observation RA and declination. Proper motion, nutation, aberration, and refraction are not modeled.
+`LD.starApparent(idx, jde)` starts from each catalog star's J2000 RA/Dec and proper motion, precesses
+to the date's mean equinox with a full rotation matrix (`precessionMatrixJ2000ToDate`), and applies
+annual aberration from Earth's VSOP-derived velocity (`earthVelocityEq`). Nutation is not modeled
+(residual well under 1′); light-time is negligible for stars and is not applied.
 
 ### Planets
 
-Planet positions use approximate Keplerian elements valid approximately for 1800-2050:
+`planetApparent(key, jde)` (inside `LD`) evaluates Venus/Mars/Jupiter/Saturn from JPL's 1800–2050
+Keplerian elements (`PLANET_ELEMENTS`, `keplerSolve`), referred to the J2000 mean ecliptic/equinox:
 
-1. Linearly evaluate orbital elements from `T`.
-2. Compute mean anomaly `M = L - w`.
-3. Solve Kepler's equation with Newton iteration:
+1. Linearly evaluate orbital elements from `T`, solve Kepler's equation, and build the heliocentric
+   ecliptic position.
+2. Subtract Earth's VSOP87D heliocentric position (`earthHelioCart`) to get the geocentric vector,
+   iterating once for light-time.
+3. Rotate by the fixed J2000 obliquity into equatorial coordinates.
+4. Precess to the date's mean equinox and apply annual aberration, exactly like the star pipeline.
 
-$$
-M = E - e\sin E
-$$
+This keeps Keplerian-element accuracy (~1′, well within sextant precision) while adding the light-time,
+aberration, and rigorous precession the old implementation lacked. It is not full VSOP87D, so it is
+still a notch below the Sun/Moon/star pipeline's arcsecond-level accuracy.
 
-with update:
-
-$$
-E_{n+1} = E_n + \frac{M - (E_n - e\sin E_n)}{1 - e\cos E_n}
-$$
-
-4. Convert the orbital-plane coordinates to heliocentric ecliptic Cartesian coordinates.
-5. Subtract Earth's heliocentric position to obtain geocentric coordinates.
-6. Rotate by the J2000 obliquity into equatorial coordinates.
-7. Convert the vector to RA and declination and apply precession.
-
-This is intended for visualization and educational sight reduction, not precision ephemeris work.
 
 ## Sight-reduction formulae
 
@@ -497,23 +451,50 @@ $$
 
 The implementation clamps the inverse-trigonometric input to `[-1, 1]` to avoid floating-point domain errors.
 
-The interior azimuth angle at the observer is computed with:
+The true azimuth is computed directly with a singularity-free `atan2` formula (no division by
+`cos L cos H_c`, so it stays well-conditioned even when the body is near the zenith or the observer
+is near a pole):
 
 $$
-\cos Z = \frac{\sin D - \sin L\sin H_c}{\cos L\cos H_c}
+Z_n = 180^\circ + \mathrm{atan2}\big(\sin H,\ \cos H\sin L - \tan D\cos L\big)
 $$
 
-`Z` is constrained to `[0, 180]` degrees. The true azimuth is then selected by the sign of `sin(LHA)`:
-
-$$
-Z_n =
-\begin{cases}
-360 - Z, & \sin(LHA) > 0\\
-Z, & \sin(LHA) \le 0
-\end{cases}
-$$
+normalized to `[0, 360)`. The interior azimuth angle `Z` (used for the PZX panel) is then
+`Z_n` if `Z_n \le 180°`, else `360° - Z_n`.
 
 The implementation returns `{ Hc, Zn, Z }` in degrees.
+
+### Sextant altitude corrections (Hs → Ho)
+
+`correctedAltitudeParts(hsDeg, icArcmin, heightM, bodyId, jd, limb, P, Tc, latDeg)` reduces an
+observed sextant altitude to the observed altitude `Ho` used for the intercept, and returns the
+individual correction terms alongside it (`correctedAltitude()` is a thin wrapper that returns just
+`Ho`, for call sites that only need the number):
+
+1. Apply index error and dip: $h_{app} = H_s + IC/60 - 1.76\sqrt{\max(0, h_{eye})}/60$ (dip in
+   degrees, height of eye in metres).
+2. Subtract atmospheric refraction (`LD.refractionRad`, Bennett's formula) to get the topocentric
+   true altitude.
+3. Add parallax in altitude, `HP_{obs} \cos h_{topo}`, where `HP_{obs}` is the body's horizontal
+   parallax reduced to the observer's latitude on an oblate Earth (`LD.hpForLatitude`) — significant
+   for the Moon, negligible for the Sun/planets, zero for stars.
+4. Add or subtract semi-diameter for a Sun/Moon limb sight (`+` lower limb, `-` upper limb, `0` for
+   a centre sight or any other body).
+
+`getComputedBodies()` computes `Ho` (and the resulting intercept `a = (H_o - H_c) \times 60` nm) for
+whichever body has a valid Hs entered — the focus body's "4. Sight Observation" panel, or a visible
+body's own Hs/limb slot — and the plotting sheet, circle of equal altitude, and computed-values panel
+all use `Ho` rather than the raw sextant reading.
+
+### Precision readout
+
+`bodyEphemerisAccuracy(id)` returns a short accuracy tag shown as the `Eph` row for every body in the
+computed-values panel: arcsecond-level for the Sun, Moon, and stars (the shared VSOP87D/ELP-2000/
+precessed-catalog engine), or roughly 1′ for the Keplerian-elements planets. Whenever a body has a
+valid `Ho`, a `Corr` row also breaks down the dip, refraction, parallax, and semi-diameter terms from
+`correctedAltitudeParts()`, followed by a one-line reminder that each 1′ of residual error in `Hs`,
+`IC`, dip, or the ephemeris itself shifts the intercept by about 1 nm (the same 1′ = 1 nm relationship
+the intercept itself is built on).
 
 ### PZX side values
 
@@ -574,7 +555,7 @@ $$
 P(t) = r\big(\cos R \cdot c + \sin R \cdot (\cos t \cdot u + \sin t \cdot v)\big)
 $$
 
-for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - H` degrees from the body's GP, so an observation of altitude `H` places the observer somewhere on this circle. `rebuildScene()` draws the focus-body circle only when a valid `Hs` is entered, using angular radius `90 - Hs` and the selected body's GP as its center. The focus circle is rendered as a visible overlay above the Earth surface. Visible bodies draw independent circles only when their own `Hs` is entered, centered on each body's GP.
+for `t` from `0` to `2\pi`, where `R` is the angular radius in radians. This is the true circle of equal altitude: every point on it is exactly `90 - H` degrees from the body's GP, so an observation of altitude `H` places the observer somewhere on this circle. `rebuildScene()` draws the focus-body circle only when a valid `Hs` is entered, using angular radius `90 - Ho` (see "Sextant altitude corrections" above) and the selected body's GP as its center. The focus circle is rendered as a visible overlay above the Earth surface. Visible bodies draw independent circles only when their own `Hs` is entered, centered on each body's GP.
 
 ### Ecliptic plane
 
@@ -592,17 +573,17 @@ Those coordinates are converted to GHA/longitude with the same sidereal rotation
 
 ## Plotting sheet
 
-`drawPlotSheet(asLat, asLon, Zn, Hc)` draws a square covering `+-2` degrees around the DR position. The annotation pass adds longitude labels along the horizontal axis, plus a full dashed Zn bearing line through AS; the LOP remains perpendicular to that line and is labeled `LOP (Hs)`.
+`drawPlotSheet(asLat, asLon, Zn, Hc)` draws a square covering `+-2` degrees around the DR position. The annotation pass adds longitude labels along the horizontal axis, plus a full dashed Zn bearing line through AS; the LOP remains perpendicular to that line and is labeled `LOP (Ho)`.
 
 - Horizontal coordinate is longitude difference from DR.
 - Vertical coordinate is latitude difference from DR.
 - The vertical axis is inverted for canvas coordinates, so north appears upward.
 - AS and DR are joined by a dashed line.
 
-The intercept is calculated from observed altitude `Hs` and computed altitude `Hc`:
+The intercept is calculated from the corrected observed altitude `Ho` (see "Sextant altitude corrections" above) and computed altitude `Hc`:
 
 $$
-a = (H_s - H_c) \times 60
+a = (H_o - H_c) \times 60
 $$
 
 Because one minute of altitude corresponds to one nautical mile, `a` is in nautical miles. Positive values plot toward the selected body's azimuth; negative values plot away.
@@ -650,7 +631,7 @@ Once loaded asynchronously from a CDN, three photographic maps are layered onto 
 - A specular mask (`specularMap`) makes oceans glint while land stays matte.
 - A normal map (`normalMap`) adds subtle surface relief under the existing Phong lighting.
 
-`earthMaterial.onBeforeCompile` patches the stock Phong shader to add a day/night terminator: a world-space normal is compared against a `sunDirection` uniform, the lit side is left alone, the night side is dimmed, and a city-lights texture (`nightMap`) is additively blended in on the dark side only. Each `rebuildScene()` call recomputes the true sub-solar point from `sunPosition()` and updates both `sunDirection` and the scene's `sunLight` position, so the rendered terminator (and the Moon/planets' lit phase, since they share the same lighting) tracks the real Sun rather than a fixed light.
+`earthMaterial.onBeforeCompile` patches the stock Phong shader to add a day/night terminator: a world-space normal is compared against a `sunDirection` uniform, the lit side is left alone, the night side is dimmed, and a city-lights texture (`nightMap`) is additively blended in on the dark side only. Each `rebuildScene()` call recomputes the true sub-solar point from `getBodyRaDec('sun', jd)` and updates both `sunDirection` and the scene's `sunLight` position, so the rendered terminator (and the Moon/planets' lit phase, since they share the same lighting) tracks the real Sun rather than a fixed light.
 
 ### Body markers
 
@@ -663,9 +644,9 @@ The renderer uses a perspective camera, ambient light, a directional light (sync
 Toggling **Seasons & zodiac** swaps the geocentric globe for a schematic solar-system view, meant for teaching orbital motion and the zodiac rather than for sight reduction:
 
 - `earthGroup`, `celestialSphere`, `eqPlaneMesh`, and `eclipticGroup` are hidden, `helioGroup` is shown, and the camera is recentered to orbit the ecliptic pole (rather than the celestial pole) so every horizontal viewpoint sweeps flat around the ecliptic.
-- `rebuildHelioScene()` computes Earth's true heliocentric ecliptic position from `heliocentricEcliptic('earth', T)`, rotates it into the same right-handed equatorial-aligned frame used elsewhere, and positions the Earth mesh and its equatorial-plane disc there (both at the schematic `HELIO_AU_R` radius, unrelated to `EARTH_R`/`CELESTIAL_R`).
+- `rebuildHelioScene()` computes Earth's true heliocentric ecliptic position from `LD.earthHelioCart(jde)` (VSOP87D), rotates it into the same right-handed equatorial-aligned frame used elsewhere, and positions the Earth mesh and its equatorial-plane disc there (both at the schematic `HELIO_AU_R` radius, unrelated to `EARTH_R`/`CELESTIAL_R`).
 - A dashed Sun–Earth line extends from Earth out through the star dome, illustrating Earth's current position on its orbit.
-- The Moon mesh is placed at a fixed artistic orbital distance (`HELIO_MOON_ORBIT_R`) from Earth, but along the real computed direction from `moonPosition()`; `lookAt(earthPos)` keeps the same hemisphere always facing Earth, illustrating tidal locking.
+- The Moon mesh is placed at a fixed artistic orbital distance (`HELIO_MOON_ORBIT_R`) from Earth, but along the real computed direction from `getBodyRaDec('moon', jd)`; `lookAt(earthPos)` keeps the same hemisphere always facing Earth, illustrating tidal locking.
 - A wireframe star dome (`helioStarDome`) is plotted directly from the star catalog's RA/Dec, and the 12 `ZODIAC_SIGNS` are labeled at equal 30° divisions of ecliptic longitude starting at the vernal equinox (Aries), around the edge of a translucent ecliptic-plane disc tilted by the obliquity `ε` from Earth's equatorial plane.
 - A point light at the Sun's mesh drives ordinary Phong shading on Earth and the Moon, so both bodies show a real terminator and the Moon shows its correct phase, with no custom shader needed.
 - `animate()` spins the Earth mesh continuously (one rotation every `HELIO_DAY_SECONDS` = 10 real seconds) purely for illustration; this spin is not tied to the displayed UTC clock or date.
@@ -697,15 +678,29 @@ Toggling **Seasons & zodiac** swaps the geocentric globe for a schematic solar-s
 
 ## Accuracy and scope
 
-This is an educational visualization, not a certified navigation calculator. Important limitations include:
+This is an educational visualization; treat it as a study aid rather than a certified/type-approved
+navigation instrument. The Sun, Moon, and stars share a single precision ephemeris engine (VSOP87D
+Sun, Meeus ELP-2000 Moon, precessed/aberration-corrected star catalog with proper motion) across the
+whole app, including the main sight-reduction pipeline, not just the Lunar Distance panel. Sextant
+readings go through a real Hs → Ho pipeline (index error, height-of-eye dip, Bennett refraction,
+latitude-adjusted horizontal parallax, and Sun/Moon limb semi-diameter) before being used for the
+intercept, the circle of equal altitude, and the plotting sheet. `sightReduce()`'s azimuth uses a
+singularity-free `atan2` formula (no ill-conditioned division near the zenith or the poles).
 
-- Approximate solar, lunar, and planetary ephemerides.
-- No topocentric parallax correction for the Moon or planets.
-- No atmospheric refraction, dip, index error, semi-diameter, or observer height corrections.
-- No nutation, aberration, light-time, proper motion, or detailed Earth orientation corrections.
-- The star catalog coordinates are intentionally compact and approximate.
-- The satellite Earth photo and Sun/Moon/planet photos are illustrative imagery, not navigational charts; the procedural vector map is a simplified fallback, not a geographic dataset.
-- WebGL line width is effectively limited on many platforms, so primary triangle edges use tube geometry for visual weight.
+Remaining approximations:
+
+- Venus/Mars/Jupiter/Saturn use JPL's 1800–2050 Keplerian elements (with light-time, annual
+  aberration, and rigorous precession applied) rather than full VSOP87D — good to roughly 1′,
+  not arcsecond-level. This is well within normal sextant/observational precision for planet sights.
+- No nutation / equation of equinoxes: GHA of Aries uses mean sidereal time (GMST) and mean
+  obliquity, not the true-of-date values. The residual is well under 1′.
+- The star catalog is intentionally compact (57 standard navigational stars), each with J2000
+  position, proper motion, precession, and annual aberration applied.
+- The satellite Earth photo and Sun/Moon/planet photos are illustrative imagery, not navigational
+  charts; the procedural vector map is a simplified fallback, not a geographic dataset.
+- The plotting sheet is a local flat (±2°) approximation, not a map projection.
+- WebGL line width is effectively limited on many platforms, so primary triangle edges use tube
+  geometry for visual weight.
 
 The lunar-distance panel uses a more detailed calculation than the globe view: Meeus lunar terms, truncated VSOP87 Earth/Sun terms, stellar proper motion and aberration, plus refraction and topocentric lunar corrections. It still omits observational and instrument errors, star parallax, gravitational light deflection, unusual refraction, and the Moon's changing apparent limb near the horizon.
 
