@@ -36,7 +36,22 @@ timeline
     1884 : International Meridian Conference fixes Greenwich as 0°
 ```
 
-### 2. Time — GMT and the Moon as a clock
+### 2. John Harrison and the marine chronometer
+
+Section 1 named the marine chronometer as one of the two rival solutions to the longitude problem. John Harrison (1693–1776), a self-taught Yorkshire carpenter and clockmaker with no formal training, spent over four decades pursuing it single-handedly, competing against the Board of Longitude's institutional preference for the lunar-distance method.
+
+His first three sea clocks, H1 (1730–1735), H2, and H3, were successive attempts to keep a large pendulum- or spring-driven mechanism accurate despite a ship's motion, temperature swings, and corrosion — H3 alone took nineteen years. His breakthrough was abandoning the large-clock approach entirely: **H4** (completed 1759) was a large pocket watch about 13 cm across, its temperature-driven errors cancelled by a bimetallic strip and its friction reduced with jewelled (ruby and diamond) bearings that needed no lubricating oil to thicken or fail at sea.
+
+H4 was tested on a 1761–62 voyage to Jamaica aboard HMS *Deptford*: over 81 days it lost only about five seconds, equivalent to a longitude error of just a couple of nautical miles — spectacularly inside the Board of Longitude's own threshold for the full prize. The Board, dominated by astronomers invested in the lunar-distance method (chiefly the Astronomer Royal, Nevil Maskelyne), suspected luck and demanded a second trial; H4 passed that one too, on a 1764 voyage to Barbados. Parliament ultimately paid Harrison £8,750 in 1773, after King George III's personal intervention, though the Board never issued a clean, formal award of its full prize.
+
+The idea behind the device is disarmingly simple, even if building one accurate to a few seconds a day at sea took Harrison a lifetime: keep a clock set to Greenwich time running through the whole voyage, then compare it with local time found from the Sun. The difference converts directly to longitude at 15° per hour.
+
+<p align="center"><img src="diagrams/chronometer-concept.svg" alt="Two clock faces, local apparent time and Greenwich time, three hours apart, illustrating longitude from a time difference" width="480"></p>
+<p align="center"><i>An original schematic of the underlying idea, not a photograph of Harrison's actual instruments.</i></p>
+
+Cheaper, mass-producible chronometers — refined by makers such as Larcum Kendall (whose K1, a close copy of H4, sailed with Captain Cook), John Arnold, and Thomas Earnshaw — made the mechanical approach affordable for ordinary merchant ships by the early 19th century, gradually displacing lunar distances (section 11) for routine navigation, even though both methods remained in active use side by side for decades.
+
+### 3. Time — GMT and the Moon as a clock
 
 Greenwich Mean Time (GMT), today formalized as Universal Time (UT), is simply the time of day on the Greenwich meridian. Every celestial-navigation calculation ultimately asks "what did the sky look like from Greenwich's meridian at the same instant the observer took a sight?" — which is why a reliable reference to GMT, however it is obtained, is the missing ingredient for longitude.
 
@@ -50,7 +65,7 @@ flowchart LR
     D --> E["Time difference -> longitude"]
 ```
 
-### 3. Hour angle, GHA, and declination — coordinates for Sun, Moon, and planets
+### 4. Hour angle, GHA, and declination — coordinates for Sun, Moon, and planets
 
 Just as latitude/longitude locates a point on Earth, declination/hour-angle locates a point on the sky. **Declination (Dec)** is the sky's equivalent of latitude: the angular distance of a body north or south of the celestial equator. **Greenwich Hour Angle (GHA)** is the sky's equivalent of longitude, with one key difference — it is always measured westward from the Greenwich meridian to the body's hour circle, and because Earth keeps turning, it constantly increases with time rather than staying fixed to a place on the ground.
 
@@ -58,7 +73,7 @@ Just as latitude/longitude locates a point on Earth, declination/hour-angle loca
 
 GHA and Dec for the Sun, Moon, and planets change from minute to minute as the bodies orbit and Earth rotates, so this application recomputes them continuously from the current UTC time (see "Time and sidereal rotation" and "Celestial-body positions" below).
 
-### 4. Aries, SHA, and declination — coordinates for stars
+### 5. Aries, SHA, and declination — coordinates for stars
 
 Stars are, for navigational purposes, fixed on the sky, so it is more convenient to give each one a catalog coordinate that does not change with time, then add the time-varying part separately. The reference point is the **First Point of Aries (♈)**, the direction of the vernal equinox. **Sidereal Hour Angle (SHA)** is measured westward from Aries to a star's hour circle and, like Dec, stays essentially constant for a given star. GHA of Aries carries all of the time dependence:
 
@@ -70,7 +85,7 @@ $$
 
 This is exactly the fixed-catalog approach this application uses internally, with J2000 right ascension/declination precessed to the current date (see "Stars" below).
 
-### 5. Observed altitude, zenith distance, and the observer's two horizons
+### 6. Observed altitude, zenith distance, and the observer's two horizons
 
 **Observed altitude (Hs)** is the angle measured with a sextant between a celestial body and the visible horizon. For the geometry of sight reduction, what actually matters is the angle from the body down to the **zenith** — the point directly overhead — called the **zenith distance**:
 
@@ -82,7 +97,7 @@ The subtlety is that there are two different horizons in play. The observer's re
 
 <p align="center"><img src="diagrams/horizons.svg" alt="The observer's sensible horizon versus the celestial horizon through Earth's centre, with Hs and zenith distance" width="500"></p>
 
-### 6. The noon shot
+### 7. The noon shot
 
 The classic **noon sight** finds latitude without needing a longitude or even an accurate clock. As the Sun crosses the observer's meridian at **Local Apparent Noon (LAN)**, its altitude reaches a daily maximum and its azimuth flips from increasing to decreasing (roughly east-of-south to west-of-south, or the equivalent in the southern hemisphere) — an event easy to detect by simply tracking the sextant altitude and waiting for it to stop rising.
 
@@ -98,7 +113,19 @@ $$
 
 with the sign depending on whether the observer's zenith and the Sun's declination are on the same side of the equator (same name, add) or opposite sides (contrary name, subtract), and on which pole is elevated; if Dec is greater than Ho's colatitude (declination exceeds `90 - Ho`), the observer is on the far side of the subsolar point and the formula's sense flips accordingly. This is why latitude-by-noon-sight was routine navigational practice long before the longitude problem was solved.
 
-### 7. LHA
+### 8. Lines of position: circular and linear
+
+A single sight does not give a fix — it narrows the observer's position to a **line of position (LOP)**. Correcting Hs to Ho (see "Sextant altitude corrections" further below) and comparing it with the body's known GHA/Dec gives the exact locus: every point exactly `90° − Ho` from the body's geographic position (GP) lies on a **circle of equal altitude** centred on that GP. The observer is somewhere on that circle — full stop, with no further assumption needed.
+
+<p align="center"><img src="diagrams/lop-circular-linear.svg" alt="A huge circle of equal altitude, its tangent straight-line LOP through the intercept point, and a zoomed inset showing the two are indistinguishable over a few nautical miles" width="480"></p>
+
+The circle is enormous — its radius is `90° − Ho` in degrees, and one degree is 60 nautical miles, so a body observed at 40° altitude sits on a circle roughly 3,000 nm in radius. At the scale of a nautical chart, a few nautical miles wide, that arc is indistinguishable from its tangent line at the point nearest the assumed position (AP). This is the **linear LOP** used in practice (the intercept, or Marcq St-Hilaire, method): compute Hc for the AP, plot the intercept `a = (Ho − Hc) × 60` nautical miles along the azimuth Zn from AP, then draw the LOP through that point perpendicular to Zn — a local straight-line stand-in for the true circle.
+
+Because it is only a line, one LOP alone is not a fix. Two LOPs (ideally from bodies well separated in azimuth) cross at a single point; three or more, plotted from different bodies at nearly the same time, are the classic star fix and also reveal the size of the plotting/observational error as the small triangle ("cocked hat") where they fail to meet exactly. With only one body available — the Sun by day — a **running fix** substitutes: an earlier LOP is advanced along the ship's course and speed to cross a later one from the same body.
+
+This application draws both representations directly: the exact circle of equal altitude on the 3D globe (see "What the application shows" above), and the conventional straight-line LOP, intercept, and Zn bearing on the flat plotting sheet — precisely the two views described here, side by side.
+
+### 9. LHA
 
 Everything above (GHA, Dec, SHA) is referenced to the Greenwich meridian. But the spherical triangle actually solved for a sight is built at the *observer's* meridian, so GHA must be shifted by the observer's own longitude to get the **Local Hour Angle (LHA)**:
 
@@ -110,7 +137,7 @@ $$
 
 LHA is the angle this application ultimately feeds into sight reduction alongside declination and assumed latitude (see "Sight-reduction formulae" below); it is the true angular separation, at the observer's own meridian, between the observer and the body.
 
-### 8. Nautical Almanac — example of the daily pages
+### 10. Nautical Almanac — example of the daily pages
 
 Before calculators and apps, GHA and Dec for every hour of every day came from the *Nautical Almanac*, published annually. Each pair of facing "daily pages" covers three days and tabulates, for every whole hour of UT: the GHA of Aries, and the GHA and Dec of the Sun, Moon, Venus, Mars, Jupiter, and Saturn. A separate table at the bottom of the left-hand page lists the SHA and Dec of 57 navigational stars, which barely change over the three-day span. A representative excerpt (illustrative values, not a real date):
 
@@ -128,7 +155,7 @@ Before calculators and apps, GHA and Dec for every hour of every day came from t
 
 The Moon and planets also carry small **v** and **d** correction factors printed alongside their hourly GHA and Dec, because their rates of change are not perfectly uniform. For a sight taken between whole hours, the navigator looks up the minutes-and-seconds increment in a separate table (bound in yellow at the back of the almanac) and applies the `v`/`d` corrections proportionally. This application does the equivalent work continuously and exactly: `getBodyRaDec()` (backed by the `LD` precision engine and, for stars, precession/proper-motion) (see "Celestial-body positions" below) compute GHA and Dec directly from the formulas the almanac's own tables are generated from, for the precise instant selected, rather than interpolating between hourly entries.
 
-### 9. Lunar distance — finding GMT without a chronometer
+### 11. Lunar distance — finding GMT without a chronometer
 
 The **lunar distance method** is a historical celestial-navigation technique for determining Greenwich Mean Time (GMT) and, from it, a ship's longitude without relying on an accurate mechanical clock. The Moon moves across the background stars by roughly $0.5^\circ$ per hour, about its own apparent diameter, so it serves as the hand of a large celestial clock.
 
@@ -238,7 +265,7 @@ $$
 
 Historical lunar-distance tables commonly used three-hour intervals, making $T_2-T_1 = 3\ \text{hours}$. Comparing the recovered GMT with local mean time gives longitude at $15^\circ$ per hour. The application's Lunar Distance panel performs the geometric clearing directly, also reports almanac-style linear and cubic interpolations, and uses its ephemeris solution as the reference result.
 
-### 10. Sight reduction tables — example
+### 12. Sight reduction tables — example
 
 Before hand calculators, computing `Hc` and `Zn` from `Lat`, `Dec`, and `LHA` (the spherical-trigonometry formulae in "Sight-reduction formulae" below) meant either a slide rule and haversine tables, or one of the precomputed *sight reduction tables* (such as Pub. 229 or Pub. 249). These tables tabulate `Hc`, a rate-of-change factor `d`, and azimuth angle `Z` for every whole-degree combination of assumed latitude, LHA, and declination, so a navigator could look up a sight instead of computing one. An excerpt for `Lat = 40° N`, `LHA = 315°`:
 
