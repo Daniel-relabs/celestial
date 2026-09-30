@@ -197,7 +197,7 @@ $$
 Historical navigators often used haversine forms, such as the Dunthorne/Young approach, because positive log-table calculations were less prone to arithmetic mistakes. With
 
 $$
-\operatorname{hav}(\theta) = \frac{1 - \cos(\theta)}{2} = \sin^2\left(\frac{\theta}{2}\right),
+\text{hav}(\theta) = \frac{1 - \cos(\theta)}{2} = \sin^2\left(\frac{\theta}{2}\right),
 $$
 
 calculate the apparent-to-true altitude changes
@@ -215,19 +215,19 @@ $$
 One compact haversine form is
 
 $$
-\operatorname{hav}(k) = C^2\left[\operatorname{hav}(D_o) - \operatorname{hav}(h'_m-h'_s)\right],
+\text{hav}(k) = C^2\left[\text{hav}(D_o) - \text{hav}(h'_m-h'_s)\right],
 $$
 
 followed by
 
 $$
-\operatorname{hav}(D) = \operatorname{hav}(h_m-h_s) + \operatorname{hav}(k),
+\text{hav}(D) = \text{hav}(h_m-h_s) + \text{hav}(k),
 $$
 
 and finally
 
 $$
-D = 2\arcsin\left(\sqrt{\operatorname{hav}(D)}\right).
+D = 2\arcsin\left(\sqrt{\text{hav}(D)}\right).
 $$
 
 Once the cleared distance is known, find the two *Nautical Almanac* entries that bound it. With $D_1$ and $D_2$ tabulated at times $T_1$ and $T_2$, linear interpolation gives
