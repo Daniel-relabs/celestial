@@ -4,6 +4,8 @@ A self-contained browser visualization for celestial navigation. The app combine
 
 Open `index.html` directly in a modern browser. The page loads Three.js r128 and two fonts from CDNs, so an internet connection is needed for those and for the satellite Earth imagery (also CDN-hosted); the Sun/Moon/planet textures are embedded directly in the file and always render, even offline. A companion slide deck, `slides.html`, is linked from the header (**Slides**) and opens in a new tab.
 
+<p align="center"><img src="diagrams/gear-photo.jpg" alt="A sextant, a ship's compass, and celestial-navigation reference books laid out on a table" width="560"></p>
+
 ## A primer on celestial navigation
 
 The sections below build up, from first principles, the ideas the app puts on screen: a position on Earth, a position on the sky, and the spherical triangle that links them.
@@ -738,6 +740,7 @@ For real navigation, compare results with an approved nautical almanac and apply
 - Earth's satellite photo, specular mask, normal map, and night-lights texture are NASA Blue Marble-derived assets, loaded from the `three.js` example assets on a `jsdelivr` CDN mirror.
 - Sun/Moon/planet photos originate from Solar System Scope (CC BY 4.0), downscaled and embedded directly in `index.html` as base64 `data:` URIs so they render in every browser without any network request or CORS dependency.
 - All photographic assets load asynchronously behind the procedural fallback texture and flat palette colors, so the app remains usable if a request fails or the page is offline.
+- `diagrams/gear-photo.jpg` (used at the top of this README and as slide 2 of `slides.html`) is an original photo taken for this project, not a third-party asset.
 
 ## Extension points
 
