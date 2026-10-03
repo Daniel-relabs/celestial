@@ -145,7 +145,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="brand"><h1>Sight Reduction Sphere</h1><span>celestial navigation · PZX spherical triangle</span><span class="version">v0.2.1-4-gce3c2be</span></div>
+    <div class="brand"><h1>Sight Reduction Sphere</h1><span>celestial navigation · PZX spherical triangle</span><span class="version">v0.2.1-5-gca81a3f</span></div>
     <div class="controls-wrap">
       <div class="toggle-wrap">Nav triangle<div class="switch on" id="triToggle"><div class="knob"></div></div></div>
       <div class="toggle-wrap">Ecliptic<div class="switch on" id="eclipticToggle"><div class="knob"></div></div></div>
@@ -173,7 +173,7 @@
       <div class="field-group"><h2>Navigational Triangle</h2><div class="field"><label>Elevated pole vertex</label><select id="poleSel"><option value="N">North Pole</option><option value="S">South Pole</option></select></div></div>
       <div class="field-group"><h2>Camera Control</h2><div class="field"><label>Zoom Level</label><input type="range" id="zoomSlider" min="0.15" max="60" step="0.05" value="6.4"></div></div>
       <div class="field-group"><h2>Time (UTC)</h2><div class="field"><label>Date</label><input type="date" id="dateIn"></div><div class="field"><label>Time</label><input type="time" id="timeIn" step="1"></div><div class="field"><label>Time offset range</label><select id="timeOffsetRange"><option value="6">6 hours</option><option value="12">12 hours</option><option value="48">48 hours</option><option value="72">72 hours</option><option value="240">1 week</option><option value="720">1 month</option><option value="2160">3 months</option><option value="4320">6 months</option><option value="8760">1 year</option></select></div><div class="field"><label>Time offset (hours)</label><input type="range" id="timeOffsetSlider" min="-6" max="6" step="1" value="0"></div><button class="btn" id="nowBtn">Use current UTC time</button></div>
-      <div class="field-group"><h2>1. Celestial Body</h2><div class="field"><label>Focus Body</label><select id="bodySel"></select></div><div class="field"><label>Visible Bodies</label></div><div id="visibleBodyControls"></div></div>
+      <div class="field-group"><h2>1. Celestial Body</h2><div class="field"><label>Focus Body</label><select id="bodySel"></select></div><div class="field"><label>Visible Bodies</label></div><div id="visibleBodyControls"></div><button class="btn" id="bestBodiesBtn" style="margin-top:8px;">⭐ Select 9 best bodies</button></div>
       <div class="field-group"><h2>2. Assumed Position (AS)</h2><div class="field"><label>Latitude (+N / −S)</label><input type="number" id="latIn" step="0.01" value="40.42"></div><div class="field"><label>Longitude (+E / −W)</label><input type="number" id="lonIn" step="0.01" value="-3.70"></div><button class="btn" id="geoBtn">📍 Use my location</button><div id="geoStatus" style="font-size:10.5px;color:var(--text-faint);margin-top:5px;"></div></div>
       <div class="field-group"><h2>3. Dead Reckoning (DR)</h2><div class="field"><label>Latitude (+N / −S)</label><input type="number" id="drLatIn" step="0.01" value="40.00"></div><div class="field"><label>Longitude (+E / −W)</label><input type="number" id="drLonIn" step="0.01" value="-4.00"></div></div>
       <div class="field-group"><h2>4. Sight Observation</h2><div class="field"><label>Observed Altitude Hs (°)</label><input type="number" id="hsIn" step="0.01" placeholder="e.g. 37.38"></div><div class="field"><label>Limb (Sun / Moon only)</label><select id="limbIn"><option value="center">Center</option><option value="lower">Lower limb</option><option value="upper">Upper limb</option></select></div><div class="field"><label>Index error IC (′, + on the arc)</label><input type="number" id="icIn" step="0.1" value="0"></div><div class="field"><label>Height of eye (m)</label><input type="number" id="heIn" step="0.1" value="0"></div><div class="field"><label>Pressure (mb)</label><input type="number" id="pressIn" step="1" value="1010"></div><div class="field"><label>Temperature (°C)</label><input type="number" id="tempIn" step="1" value="10"></div></div>
@@ -720,6 +720,34 @@ const ZODIAC_SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','
 ZODIAC_SIGNS.forEach((name, i) => { const lambda = i * 30 * DEG; const xEcl = Math.cos(lambda), yEcl = Math.sin(lambda); const yE = yEcl * Math.cos(HELIO_ECLIPTIC_EPS), zE = yEcl * Math.sin(HELIO_ECLIPTIC_EPS); const pos = new THREE.Vector3(xEcl, zE, -yE).multiplyScalar(HELIO_STAR_DOME_R * 0.94); helioGroup.add(makeLabel(name, pos, '#ffbb33', 22)); });
 let helioLine = null;
 function getVisibleBodyIds(){ return visibleBodySlots.filter(s => s.enabled).map(s => s.id).filter(Boolean); }
+// Closer to 45° altitude = lower refraction/dip error and highest sensitivity to position error (best sight quality).
+function altitudeScore(hcDeg){ return -Math.abs(hcDeg - 45); }
+// Picks 8 bodies (plus the focus body = 9 total) good-Hc-first within each of 8 azimuth sectors, so the fix has both accurate altitudes and compass-spread geometry.
+function selectBestBodies(){
+  const focusId = document.getElementById('bodySel').value;
+  const lat = parseFloat(document.getElementById('latIn').value) || 0;
+  const lon = parseFloat(document.getElementById('lonIn').value) || 0;
+  const jd = currentJD(), gha0 = gmstDeg(jd);
+  const candidateIds = ['sun','moon','venus','mars','jupiter','saturn', ...LD.STARS.map((_, i) => 'star_' + i)].filter(id => id !== focusId);
+  const candidates = candidateIds.map(id => {
+    const data = getBodyRaDec(id, jd);
+    const lha = norm360(norm360(gha0 - data.ra) + lon);
+    const { Hc, Zn } = sightReduce(lha, data.dec, lat);
+    return { id, Hc, Zn };
+  }).filter(c => c.Hc >= 10 && c.Hc <= 80); // usable band: avoid heavy low-altitude refraction and near-zenith azimuth ambiguity
+  const SECTOR_COUNT = visibleBodySlots.length, SECTOR_SIZE = 360 / SECTOR_COUNT;
+  const used = new Set(), picked = [];
+  for(let s = 0; s < SECTOR_COUNT; s++){
+    const lo = s * SECTOR_SIZE, hi = lo + SECTOR_SIZE;
+    const inSector = candidates.filter(c => !used.has(c.id) && c.Zn >= lo && c.Zn < hi).sort((a, b) => altitudeScore(b.Hc) - altitudeScore(a.Hc));
+    if(inSector.length){ picked.push(inSector[0]); used.add(inSector[0].id); }
+  }
+  const leftovers = candidates.filter(c => !used.has(c.id)).sort((a, b) => altitudeScore(b.Hc) - altitudeScore(a.Hc));
+  while(picked.length < SECTOR_COUNT && leftovers.length) picked.push(leftovers.shift());
+  visibleBodySlots = picked.map(c => ({ id:c.id, enabled:true, hs:'', limb:'center' }));
+  populateVisibleBodyControls();
+  rebuildScene();
+}
 function buildBodyOptions(selectedValue='sun'){ const choices = [['sun','Sun'],['moon','Moon'],['venus','Venus'],['mars','Mars'],['jupiter','Jupiter'],['saturn','Saturn']]; LD.STARS.forEach((s, i) => choices.push(['star_' + i, s[0] + ' (' + s[1] + ')'])); const frag = document.createDocumentFragment(); choices.forEach(([value, label]) => { const opt = document.createElement('option'); opt.value = value; opt.textContent = label; if(value === selectedValue) opt.selected = true; frag.appendChild(opt); }); return frag; }
 function populateVisibleBodyControls(){ const container = document.getElementById('visibleBodyControls'); container.innerHTML=''; visibleBodySlots.forEach((slot, idx) => { const row = document.createElement('div'); row.className = 'body-slot-row'; const chk = document.createElement('input'); chk.type='checkbox'; chk.checked = slot.enabled; chk.addEventListener('change', () => { visibleBodySlots[idx].enabled = chk.checked; rebuildScene(); }); const sel = document.createElement('select'); sel.appendChild(buildBodyOptions(slot.id)); sel.value = slot.id; const hsField = document.createElement('input'); hsField.type = 'number'; hsField.step = '0.01'; hsField.placeholder = 'Hs°'; hsField.title = 'Observed altitude Hs for this body'; hsField.value = slot.hs || ''; hsField.addEventListener('input', () => { visibleBodySlots[idx].hs = hsField.value; rebuildScene(); }); const limbSel = document.createElement('select'); limbSel.title = 'Limb used (Sun/Moon only)'; [['center','C'],['lower','LL'],['upper','UL']].forEach(([v,label]) => { const opt = document.createElement('option'); opt.value = v; opt.textContent = label; if(v === (slot.limb || 'center')) opt.selected = true; limbSel.appendChild(opt); }); limbSel.disabled = !limbAppliesTo(slot.id); limbSel.addEventListener('change', () => { visibleBodySlots[idx].limb = limbSel.value; rebuildScene(); }); sel.addEventListener('change', () => { visibleBodySlots[idx].id = sel.value; limbSel.disabled = !limbAppliesTo(sel.value); rebuildScene(); }); row.appendChild(chk); row.appendChild(sel); row.appendChild(hsField); row.appendChild(limbSel); container.appendChild(row); }); }
 function populateBodySelect(){ const sel = document.getElementById('bodySel'); sel.innerHTML=''; sel.appendChild(buildBodyOptions('sun')); sel.value='sun'; populateVisibleBodyControls(); }
@@ -761,6 +789,7 @@ document.getElementById('eclipticToggle').addEventListener('click', () => { ecli
 document.getElementById('radialToggle').addEventListener('click', () => { radialLinesVisible = !radialLinesVisible; document.getElementById('radialToggle').classList.toggle('on', radialLinesVisible); rebuildScene(); });
 document.getElementById('eqPlaneToggle').addEventListener('click', () => { eqPlaneMesh.visible = !eqPlaneMesh.visible; document.getElementById('eqPlaneToggle').classList.toggle('on', eqPlaneMesh.visible); });
 document.getElementById('celSphereToggle').addEventListener('click', () => { celestialSphere.visible = !celestialSphere.visible; document.getElementById('celSphereToggle').classList.toggle('on', celestialSphere.visible); });
+document.getElementById('bestBodiesBtn').addEventListener('click', selectBestBodies);
 let helioPrevVisible = null; let helioSavedCam = null; let helioSavedTimeRange = null;
 document.getElementById('helioToggle').addEventListener('click', function(){ heliocentricView = !heliocentricView; this.classList.toggle('on', heliocentricView); const rangeSel = document.getElementById('timeOffsetRange'); const offsetSlider = document.getElementById('timeOffsetSlider'); if(heliocentricView){ helioPrevVisible = { earthGroup:earthGroup.visible, celestialSphere:celestialSphere.visible, eqPlaneMesh:eqPlaneMesh.visible, eclipticGroup:eclipticGroup.visible }; earthGroup.visible = false; celestialSphere.visible = false; eqPlaneMesh.visible = false; eclipticGroup.visible = false; helioGroup.visible = true; helioSavedCam = { r:camRadius, th:camTheta, ph:camPhi, t:camTarget.clone() }; camRadius = HELIO_STAR_DOME_R * 1.3; camTheta = 0.9; camPhi = 1.15; camTarget.set(0,0,0); document.getElementById('zoomSlider').value = camRadius; helioSavedTimeRange = { range:rangeSel.value, min:offsetSlider.min, max:offsetSlider.max, value:offsetSlider.value }; rangeSel.value = '8760'; offsetSlider.min = -8760; offsetSlider.max = 8760; } else { helioGroup.visible = false; if(helioPrevVisible){ earthGroup.visible = helioPrevVisible.earthGroup; celestialSphere.visible = helioPrevVisible.celestialSphere; eqPlaneMesh.visible = helioPrevVisible.eqPlaneMesh; eclipticGroup.visible = helioPrevVisible.eclipticGroup; } if(helioSavedCam){ camRadius = helioSavedCam.r; camTheta = helioSavedCam.th; camPhi = helioSavedCam.ph; camTarget.copy(helioSavedCam.t); document.getElementById('zoomSlider').value = camRadius; } if(helioSavedTimeRange){ rangeSel.value = helioSavedTimeRange.range; offsetSlider.min = helioSavedTimeRange.min; offsetSlider.max = helioSavedTimeRange.max; offsetSlider.value = helioSavedTimeRange.value; } } updateCamera(); rebuildScene(); });
 document.getElementById('poleSel').addEventListener('change', (e) => { selectedPole = e.target.value; rebuildScene(); });
